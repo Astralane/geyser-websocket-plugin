@@ -39,7 +39,7 @@ pub enum GeyserPluginPostgresError {
 
 impl GeyserPlugin for GeyserPluginPostgres {
     fn name(&self) -> &'static str {
-        "GeyserPluginHook"
+        "GeyserPluginPostgres"
     }
 
     fn on_load(
