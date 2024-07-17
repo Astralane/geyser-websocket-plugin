@@ -7,6 +7,7 @@ use diesel::{
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone)]
 pub struct Database {
     pool: r2d2::Pool<ConnectionManager<PgConnection>>,
 }
