@@ -1,0 +1,18 @@
+[package]
+name = "geyser-test-plugin"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+solana-geyser-plugin-interface = "1.18.18"
+solana-logger = { version = "2.0.2" }
+log = "0.4.14"
+diesel = { version = "2.2.0", features = ["postgres", "r2d2", "chrono"] }
+anyhow = "1.0.86"
+serde = { version = "1.0.204", features = ["derive"] }
+thiserror = "1.0.63"
+tokio = { version = "1.16.1", features = ["full"] }
+diesel_migrations = "2.2.0"

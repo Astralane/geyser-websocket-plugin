@@ -1,0 +1,3 @@
+{
+  "libpath": "./target/release/libgeyser_test_plugin.dylib"
+}
