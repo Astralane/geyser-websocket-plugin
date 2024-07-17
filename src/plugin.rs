@@ -28,7 +28,7 @@ pub enum GeyserPluginPostgresError {
     GenericError { msg: String },
 
     #[error("channel send error")]
-    ChannelSendError(#[from] tokio::sync::mpsc::error::SendError<DBWorkerMessage>),
+    ChannelSendError(#[from] crossbeam_channel::SendError<DBWorkerMessage>),
 
     #[error("Database internal error message")]
     DatabaseError(#[from] diesel::result::Error),

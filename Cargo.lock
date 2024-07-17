@@ -1153,6 +1153,7 @@ name = "geyser-test-plugin"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "crossbeam-channel",
  "diesel",
  "diesel_migrations",
  "log",

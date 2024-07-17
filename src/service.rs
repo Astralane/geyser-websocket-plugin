@@ -1,5 +1,4 @@
 use crate::database::{Database, TransactionDTO};
-use tokio::sync::mpsc;
 
 pub enum DBMessage {
     //start and end indeces of the chunk
@@ -10,13 +9,14 @@ pub struct DBWorkerMessage {
     pub message: DBMessage,
 }
 
+#[derive(Clone)]
 pub struct DBWorker {
-    pub receiver: mpsc::Receiver<DBWorkerMessage>,
+    pub receiver: crossbeam_channel::Receiver<DBWorkerMessage>,
     pub db: Database,
 }
 
 impl DBWorker {
-    pub fn new(url: &str, recv: mpsc::Receiver<DBWorkerMessage>) -> Self {
+    pub fn new(url: &str, recv: crossbeam_channel::Receiver<DBWorkerMessage>) -> Self {
         let db = Database::new(url);
         Self { receiver: recv, db }
     }
@@ -32,7 +32,7 @@ impl DBWorker {
 }
 
 pub async fn run_service(mut actor: DBWorker) {
-    while let Some(message) = actor.receiver.recv().await {
+    while let Ok(message) = actor.receiver.recv() {
         actor.handle_message(message);
     }
 }
