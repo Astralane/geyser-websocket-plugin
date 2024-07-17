@@ -7,7 +7,9 @@ This plugin is a simple one which sends transactions to a Postgres database usin
 
 ## how to run
 **Make sure you have solana-testnet-cli installed and using mac**
-run the database for postgres
+
+run the database for postgres:
+
 ```
 docker compose up
 ```
