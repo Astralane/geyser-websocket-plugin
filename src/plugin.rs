@@ -99,15 +99,15 @@ impl GeyserPlugin for GeyserPluginPostgres {
                 //     transaction_info
                 // );
 
-                // let tx = TransactionDTO {
-                //     signature: transaction_info.signature.to_string(),
-                //     fee: transaction_info
-                //         .transaction_status_meta
-                //         .fee
-                //         .try_into()
-                //         .unwrap(),
-                //     slot: slot.try_into().unwrap(),
-                // };
+                let tx = TransactionDTO {
+                    signature: transaction_info.signature.to_string(),
+                    fee: transaction_info
+                        .transaction_status_meta
+                        .fee
+                        .try_into()
+                        .expect("cannot parse to fee"),
+                    slot: slot.try_into().expect("cannot parse to slot"),
+                };
 
                 // let msg = DBWorkerMessage {
                 //     message: DBMessage::Transaction(tx),
