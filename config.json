@@ -1,5 +1,5 @@
 {
-  "libpath": "target/debug/libgeyser_test_plugin.dylib",
+  "libpath": "target/debug/libgeyser_test_plugin.so",
   "log": {
     "level": "info"
   }
