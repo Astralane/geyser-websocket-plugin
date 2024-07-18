@@ -99,19 +99,19 @@ impl GeyserPlugin for GeyserPluginPostgres {
                     transaction_info
                 );
 
-                let tx = TransactionDTO {
-                    signature: transaction_info.signature.to_string(),
-                    fee: transaction_info
-                        .transaction_status_meta
-                        .fee
-                        .try_into()
-                        .unwrap(),
-                    slot: slot.try_into().unwrap(),
-                };
+                // let tx = TransactionDTO {
+                //     signature: transaction_info.signature.to_string(),
+                //     fee: transaction_info
+                //         .transaction_status_meta
+                //         .fee
+                //         .try_into()
+                //         .unwrap(),
+                //     slot: slot.try_into().unwrap(),
+                // };
 
-                let msg = DBWorkerMessage {
-                    message: DBMessage::Transaction(tx),
-                };
+                // let msg = DBWorkerMessage {
+                //     message: DBMessage::Transaction(tx),
+                // };
 
                 if let Some(client) = self.client.as_ref() {
                     // let res = client.send(msg);
