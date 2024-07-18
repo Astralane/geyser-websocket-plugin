@@ -6,7 +6,7 @@ use solana_geyser_plugin_interface::geyser_plugin_interface::{
     GeyserPlugin, GeyserPluginError, ReplicaAccountInfoVersions, ReplicaBlockInfoVersions,
     ReplicaTransactionInfoVersions, SlotStatus,
 };
-use std::fmt::{Debug};
+use std::fmt::Debug;
 use thiserror::Error;
 
 /// This is the main object returned bu our dynamic library in entrypoint.rs
@@ -92,41 +92,40 @@ impl GeyserPlugin for GeyserPluginPostgres {
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         info!("notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
-        // match transaction {
-        //     ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
-        //         info!(
-        //             "notify_transaction: transaction_info: {:#?}",
-        //             transaction_info
-        //         );
-        //
-        //         let tx = TransactionDTO {
-        //             signature: transaction_info.signature.to_string(),
-        //             fee: transaction_info
-        //                 .transaction_status_meta
-        //                 .fee
-        //                 .try_into()
-        //                 .unwrap(),
-        //             slot: slot.try_into().unwrap(),
-        //         };
-        //
-        //         let msg = DBWorkerMessage {
-        //             message: DBMessage::Transaction(tx),
-        //         };
-        //
-        //         let res = self.client.send(msg);
-        //         if let Err(e) = res {
-        //             return Err(GeyserPluginError::Custom(Box::new(e)));
-        //         }
-        //
-        //         Ok(())
-        //     }
-        //     _ => Err(GeyserPluginError::Custom(Box::new(
-        //         GeyserPluginPostgresError::GenericError {
-        //             msg: "version not supported".to_string(),
-        //         },
-        //     ))),
-        // }
-        Ok(())
+        match transaction {
+            ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
+                info!(
+                    "notify_transaction: transaction_info: {:#?}",
+                    transaction_info
+                );
+
+                let tx = TransactionDTO {
+                    signature: transaction_info.signature.to_string(),
+                    fee: transaction_info
+                        .transaction_status_meta
+                        .fee
+                        .try_into()
+                        .unwrap(),
+                    slot: slot.try_into().unwrap(),
+                };
+
+                let msg = DBWorkerMessage {
+                    message: DBMessage::Transaction(tx),
+                };
+
+                let res = self.client.send(msg);
+                if let Err(e) = res {
+                    return Err(GeyserPluginError::Custom(Box::new(e)));
+                }
+
+                Ok(())
+            }
+            _ => Err(GeyserPluginError::Custom(Box::new(
+                GeyserPluginPostgresError::GenericError {
+                    msg: "version not supported".to_string(),
+                },
+            ))),
+        }
     }
 
     fn notify_block_metadata(

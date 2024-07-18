@@ -1,5 +1,5 @@
-use log::info;
 use crate::plugin::GeyserPluginPostgres;
+use log::info;
 use solana_geyser_plugin_interface::geyser_plugin_interface::GeyserPlugin;
 
 #[no_mangle]
