@@ -29,6 +29,8 @@ impl DBWorker {
             DBMessage::Transaction(transaction) => {
                 if let Err(e) = self.db.add_transaction(transaction) {
                     log::error!("Error adding transaction: {:?}", e);
+                } else {
+                    log::info!("Transaction added successfully");
                 }
             }
         }
