@@ -109,9 +109,11 @@ impl GeyserPlugin for GeyserPluginPostgres {
                     slot: slot.try_into().expect("cannot parse to slot"),
                 };
 
-                // let msg = DBWorkerMessage {
-                //     message: DBMessage::Transaction(tx),
-                // };
+                let msg = DBWorkerMessage {
+                    message: DBMessage::Transaction(tx),
+                };
+
+                info!("sending message to worker {:?}", msg);
 
                 if let Some(client) = self.client.as_ref() {
                     // let res = client.send(msg);

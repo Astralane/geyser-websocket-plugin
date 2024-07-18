@@ -13,7 +13,7 @@ pub struct Database {
     pool: r2d2::Pool<ConnectionManager<PgConnection>>,
 }
 
-#[derive(Queryable, Insertable, Selectable, Serialize, Deserialize)]
+#[derive(Debug, Queryable, Insertable, Selectable, Serialize, Deserialize)]
 #[diesel(table_name = crate::schema::chain_transactions)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 #[repr(C)]

@@ -1,10 +1,14 @@
 use crate::database::{Database, TransactionDTO};
 
+#[derive(Debug)]
+#[repr(C)]
 pub enum DBMessage {
     //start and end indeces of the chunk
     Transaction(TransactionDTO),
 }
 
+#[derive(Debug)]
+#[repr(C)]
 pub struct DBWorkerMessage {
     pub message: DBMessage,
 }
