@@ -94,10 +94,10 @@ impl GeyserPlugin for GeyserPluginPostgres {
         //get validator for this slot
         match transaction {
             ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
-                info!(
-                    "notify_transaction: transaction_info: {:#?}",
-                    transaction_info
-                );
+                // info!(
+                //     "notify_transaction: transaction_info: {:#?}",
+                //     transaction_info
+                // );
 
                 // let tx = TransactionDTO {
                 //     signature: transaction_info.signature.to_string(),
