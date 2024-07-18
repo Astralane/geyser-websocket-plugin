@@ -9,12 +9,11 @@ pub struct Client {
 impl Client {
     pub fn new(url: &str, no_of_workers: u8) -> Self {
         let (sender, recv) = crossbeam_channel::bounded(100);
-        let mut worker = DBWorker::new(url, recv);
+        let worker = DBWorker::new(url, recv);
         //create a runtime for workers
-        let rt = tokio::runtime::Runtime::new().expect("failed to create runtime");
         for _ in 0..no_of_workers {
             let worker_tmp = worker.clone();
-            rt.spawn(run_service(worker_tmp));
+            std::thread::spawn(|| run_service(worker_tmp));
         }
         Self { sender }
     }

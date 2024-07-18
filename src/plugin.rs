@@ -131,9 +131,7 @@ impl GeyserPlugin for GeyserPluginPostgres {
                 Ok(())
             }
             _ => Err(GeyserPluginError::Custom(Box::new(
-                GeyserPluginPostgresError::GenericError {
-                    msg: "version not supported".to_string(),
-                },
+                GeyserPluginPostgresError::VersionNotSupported,
             ))),
         }
     }
