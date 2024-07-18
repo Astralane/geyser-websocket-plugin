@@ -11,10 +11,10 @@ impl Client {
         let (sender, recv) = crossbeam_channel::bounded(100);
         let mut worker = DBWorker::new(url, recv);
         //create a runtime for workers
-        let rt = tokio::runtime::Runtime::new();
+        let rt = tokio::runtime::Runtime::new().expect("failed to create runtime");
         for _ in 0..no_of_workers {
             let worker_tmp = worker.clone();
-            rt.spawn(run_service(worker_tmp)).expect("failed to spawn worker thread");
+            rt.spawn(run_service(worker_tmp));
         }
         Self { sender }
     }
