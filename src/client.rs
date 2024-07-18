@@ -20,6 +20,6 @@ impl Client {
     pub fn send(&self, message: DBWorkerMessage) -> Result<(), GeyserPluginPostgresError> {
         self.sender
             .send(message)
-            .map_err(|e| GeyserPluginPostgresError::ChannelSendError(e))
+            .map_err(GeyserPluginPostgresError::ChannelSendError)
     }
 }
