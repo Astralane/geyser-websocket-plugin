@@ -126,6 +126,7 @@ impl GeyserPlugin for GeyserPluginPostgres {
         //         },
         //     ))),
         // }
+        Ok(())
     }
 
     fn notify_block_metadata(
