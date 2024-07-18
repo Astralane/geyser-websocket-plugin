@@ -9,11 +9,10 @@ pub struct Client {
 impl Client {
     pub fn new(url: &str) -> Self {
         let (sender, recv) = crossbeam_channel::bounded(100);
-        let service = DBWorker::new(url, recv);
-        // aribitrary number of of workers can be spawned
-        tokio::task::spawn(run_service(service.clone()));
-        tokio::task::spawn(run_service(service.clone()));
-        tokio::task::spawn(run_service(service));
+        let worker = DBWorker::new(url, recv);
+        //create a runtime for workers
+        let rt = tokio::runtime::Runtime::new().expect("couldnt create runtime");
+        rt.spawn(run_service(worker));
         Self { sender }
     }
     pub fn send(&self, message: DBWorkerMessage) -> Result<(), GeyserPluginPostgresError> {
