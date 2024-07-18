@@ -114,10 +114,10 @@ impl GeyserPlugin for GeyserPluginPostgres {
                 };
 
                 if let Some(client) = self.client.as_ref() {
-                    let res = client.send(msg);
-                    if let Err(e) = res {
-                        return Err(GeyserPluginError::Custom(Box::new(e)));
-                    }
+                    // let res = client.send(msg);
+                    // if let Err(e) = res {
+                    //     return Err(GeyserPluginError::Custom(Box::new(e)));
+                    // }
                 } else {
                     return Err(GeyserPluginError::Custom(Box::new(
                         GeyserPluginPostgresError::GenericError {
