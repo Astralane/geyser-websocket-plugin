@@ -113,9 +113,17 @@ impl GeyserPlugin for GeyserPluginPostgres {
                     message: DBMessage::Transaction(tx),
                 };
 
-                let res = self.client.send(msg);
-                if let Err(e) = res {
-                    return Err(GeyserPluginError::Custom(Box::new(e)));
+                if let Some(client) = self.client.as_ref() {
+                    let res = client.send(msg);
+                    if let Err(e) = res {
+                        return Err(GeyserPluginError::Custom(Box::new(e)));
+                    }
+                } else {
+                    return Err(GeyserPluginError::Custom(Box::new(
+                        GeyserPluginPostgresError::GenericError {
+                            msg: "client not found".to_string(),
+                        },
+                    )));
                 }
 
                 Ok(())
