@@ -11,7 +11,7 @@ impl Client {
         let (sender, recv) = crossbeam_channel::bounded(100);
         let worker = DBWorker::new(url, recv);
         //create a runtime for workers
-        let rt = tokio::runtime::Runtime::new().expect("couldnt create runtime");
+        //let rt = tokio::runtime::Runtime::new();
         std::thread::spawn(|| {
             run_service(worker)
         });

@@ -12,16 +12,14 @@ use thiserror::Error;
 /// This is the main object returned bu our dynamic library in entrypoint.rs
 #[derive(Debug)]
 pub struct GeyserPluginPostgres {
-    // client: Client,
+    pub client: Option<Client>,
 }
 
 impl GeyserPluginPostgres {
-    pub fn new(url: &str) -> Self {
+    pub fn new() -> Self {
         solana_logger::setup_with_default("info");
-        // let client = Client::new(url);
-        // Self { client }
-        Self {
-        }
+        info!("creating client");
+        Self { client: None }
     }
 }
 
@@ -51,6 +49,8 @@ impl GeyserPlugin for GeyserPluginPostgres {
         _is_reload: bool,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         info!("on_load: config_file: {:#?}", config_file);
+        let client = Client::new("postgres://postgres:postgres@localhost:5432");
+        self.client = Some(client);
         Ok(())
     }
 
