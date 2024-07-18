@@ -31,7 +31,7 @@ impl DBWorker {
     }
 }
 
-pub async fn run_service(mut actor: DBWorker) {
+pub fn run_service(mut actor: DBWorker) {
     while let Ok(message) = actor.receiver.recv() {
         actor.handle_message(message);
     }

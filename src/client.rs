@@ -12,7 +12,7 @@ impl Client {
         let worker = DBWorker::new(url, recv);
         //create a runtime for workers
         let rt = tokio::runtime::Runtime::new().expect("couldnt create runtime");
-        //rt.spawn(run_service(worker));
+        std::thread::spawn(run_service(worker));
         Self { sender }
     }
     pub fn send(&self, message: DBWorkerMessage) -> Result<(), GeyserPluginPostgresError> {
