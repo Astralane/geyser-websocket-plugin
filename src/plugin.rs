@@ -90,7 +90,7 @@ impl GeyserPlugin for GeyserPluginPostgres {
         transaction: ReplicaTransactionInfoVersions,
         slot: u64,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_transaction: transaction for {:?}", slot);
+        info!("notify_transaction: transaction for {:#?}", slot);
         //get validator for this slot
         match transaction {
             ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {

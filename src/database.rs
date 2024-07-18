@@ -8,6 +8,7 @@ use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
+#[repr(C)]
 pub struct Database {
     pool: r2d2::Pool<ConnectionManager<PgConnection>>,
 }
@@ -15,6 +16,7 @@ pub struct Database {
 #[derive(Queryable, Insertable, Selectable, Serialize, Deserialize)]
 #[diesel(table_name = crate::schema::chain_transactions)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
+#[repr(C)]
 pub struct TransactionDTO {
     pub signature: String,
     pub fee: i64,
