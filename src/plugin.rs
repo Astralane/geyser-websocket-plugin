@@ -49,7 +49,7 @@ impl GeyserPlugin for GeyserPluginPostgres {
         _is_reload: bool,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         info!("on_load: config_file: {:#?}", config_file);
-        let client = Client::new("postgres://postgres:postgres@localhost:5432", 4);
+        let client = Client::new("postgres://postgres:postgres@localhost:5432?ssl=true&sslmode=require", 4);
         self.client = Some(client);
         Ok(())
     }
