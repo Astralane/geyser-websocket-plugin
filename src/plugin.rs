@@ -86,12 +86,12 @@ impl GeyserPlugin for GeyserPluginPostgres {
         transaction: ReplicaTransactionInfoVersions,
         slot: u64,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_transaction: transaction for {:#?}", slot);
+        info!("notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
         match transaction {
             ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
 
-                info!("sending message to worker {:?}", transaction_info);
+                // info!("sending message to worker {:?}", transaction_info);
 
                 if let Some(client) = self.client.as_ref() {
                     let res = client.send(transaction_info.index);
