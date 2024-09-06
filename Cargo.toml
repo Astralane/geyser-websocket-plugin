@@ -7,11 +7,9 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-solana-geyser-plugin-interface = "1.18.18"
-solana-logger = { version = "2.0.2" }
+solana-geyser-plugin-interface = "1.18.23"
+solana-logger = { version = "2.0.8" }
 log = "0.4.14"
-diesel = { version = "2.2.0", features = ["postgres", "r2d2", "chrono"] }
 serde = { version = "1.0.204", features = ["derive"] }
 thiserror = "1.0.63"
-diesel_migrations = "2.2.0"
 crossbeam-channel = "0.5.13"

@@ -1,6 +1,4 @@
 use crate::client::Client;
-use crate::database::TransactionDTO;
-use crate::service::{DBMessage, DBWorkerMessage};
 use log::info;
 use solana_geyser_plugin_interface::geyser_plugin_interface::{
     GeyserPlugin, GeyserPluginError, ReplicaAccountInfoVersions, ReplicaBlockInfoVersions,
@@ -29,10 +27,8 @@ pub enum GeyserPluginPostgresError {
     GenericError { msg: String },
 
     #[error("channel send error")]
-    ChannelSendError(#[from] crossbeam_channel::SendError<DBWorkerMessage>),
+    ChannelSendError(#[from] crossbeam_channel::SendError<usize>),
 
-    #[error("Database internal error message")]
-    DatabaseError(#[from] diesel::result::Error),
 
     #[error("version  not supported anymore")]
     VersionNotSupported,
@@ -94,29 +90,11 @@ impl GeyserPlugin for GeyserPluginPostgres {
         //get validator for this slot
         match transaction {
             ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
-                // info!(
-                //     "notify_transaction: transaction_info: {:#?}",
-                //     transaction_info
-                // );
 
-                let tx = TransactionDTO {
-                    signature: transaction_info.signature.to_string(),
-                    fee: transaction_info
-                        .transaction_status_meta
-                        .fee
-                        .try_into()
-                        .expect("cannot parse to fee"),
-                    slot: slot.try_into().expect("cannot parse to slot"),
-                };
-
-                let msg = DBWorkerMessage {
-                    message: DBMessage::Transaction(tx),
-                };
-
-                info!("sending message to worker {:?}", msg);
+                info!("sending message to worker {:?}", transaction_info);
 
                 if let Some(client) = self.client.as_ref() {
-                    let res = client.send(msg);
+                    let res = client.send(transaction_info.index);
                     if let Err(e) = res {
                         return Err(GeyserPluginError::Custom(Box::new(e)));
                     }

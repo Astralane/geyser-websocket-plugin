@@ -2,5 +2,5 @@
 
 set -ex
 
-cargo build
+cargo build -r
 solana-test-validator --geyser-plugin-config config.json

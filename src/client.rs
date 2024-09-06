@@ -1,9 +1,10 @@
+use solana_geyser_plugin_interface::geyser_plugin_interface::ReplicaTransactionInfoV2;
 use crate::plugin::GeyserPluginPostgresError;
-use crate::service::{run_service, DBWorker, DBWorkerMessage};
+use crate::service::{run_service, DBWorker};
 
 #[derive(Clone, Debug)]
 pub struct Client {
-    sender: crossbeam_channel::Sender<DBWorkerMessage>,
+    sender: crossbeam_channel::Sender<usize>,
 }
 
 impl Client {
@@ -17,7 +18,7 @@ impl Client {
         }
         Self { sender }
     }
-    pub fn send(&self, message: DBWorkerMessage) -> Result<(), GeyserPluginPostgresError> {
+    pub fn send(&self, message: usize) -> Result<(), GeyserPluginPostgresError> {
         self.sender
             .send(message)
             .map_err(GeyserPluginPostgresError::ChannelSendError)
