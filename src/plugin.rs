@@ -88,31 +88,30 @@ impl GeyserPlugin for GeyserPluginPostgres {
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         info!("notify_transaction: transaction for {:#?}", slot);
         //get validator for this slot
-        // match transaction {
-        //     ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
-        //
-        //         info!("sending message to worker {:?}", transaction_info);
-        //
-        //         if let Some(client) = self.client.as_ref() {
-        //             let res = client.send(transaction_info.index);
-        //             if let Err(e) = res {
-        //                 return Err(GeyserPluginError::Custom(Box::new(e)));
-        //             }
-        //         } else {
-        //             return Err(GeyserPluginError::Custom(Box::new(
-        //                 GeyserPluginPostgresError::GenericError {
-        //                     msg: "client not found".to_string(),
-        //                 },
-        //             )));
-        //         }
-        //
-        //         Ok(())
-        //     }
-        //     _ => Err(GeyserPluginError::Custom(Box::new(
-        //         GeyserPluginPostgresError::VersionNotSupported,
-        //     ))),
-        // }
-        Ok(())
+        match transaction {
+            ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
+
+                info!("sending message to worker {:?}", transaction_info);
+
+                if let Some(client) = self.client.as_ref() {
+                    let res = client.send(transaction_info.index);
+                    if let Err(e) = res {
+                        return Err(GeyserPluginError::Custom(Box::new(e)));
+                    }
+                } else {
+                    return Err(GeyserPluginError::Custom(Box::new(
+                        GeyserPluginPostgresError::GenericError {
+                            msg: "client not found".to_string(),
+                        },
+                    )));
+                }
+
+                Ok(())
+            }
+            _ => Err(GeyserPluginError::Custom(Box::new(
+                GeyserPluginPostgresError::VersionNotSupported,
+            ))),
+        }
     }
 
     fn notify_block_metadata(
