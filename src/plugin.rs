@@ -116,9 +116,9 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         }
         //
         let v0_message = Message {
-            header: *message.header(),
+            header: message.header().clone(),
             account_keys,
-            recent_blockhash: *message.recent_blockhash(),
+            recent_blockhash: message.recent_blockhash().clone(),
             instructions: message.instructions().to_vec(),
             address_table_lookups: message.message_address_table_lookups().to_vec(),
         };
