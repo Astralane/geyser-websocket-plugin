@@ -2,3 +2,4 @@
 mod entrypoint;
 mod plugin;
 mod server;
+mod types;

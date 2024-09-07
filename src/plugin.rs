@@ -5,14 +5,18 @@ use solana_geyser_plugin_interface::geyser_plugin_interface::{
     ReplicaTransactionInfoVersions, SlotStatus,
 };
 use std::fmt::Debug;
+use solana_program::message::v0::Message;
+use solana_sdk::commitment_config::CommitmentConfig;
 use thiserror::Error;
 use tokio::runtime::Runtime;
+use crate::types::channel_message::ChannelMessage;
+use crate::types::transaction::{Transaction, TransactionMeta};
 
 /// This is the main object returned bu our dynamic library in entrypoint.rs
 #[derive(Debug)]
 pub struct GeyserPluginWebsocket {
     pub client_store: ClientStore,
-    pub runtime: Runtime
+    pub runtime: Runtime,
 }
 
 
@@ -73,11 +77,17 @@ impl GeyserPlugin for GeyserPluginWebsocket {
     fn update_slot_status(
         &self,
         slot: u64,
-        _parent: Option<u64>,
-        _status: SlotStatus,
+        parent: Option<u64>,
+        status: SlotStatus,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         // info!("update_slot_status: slot: {:?}", slot);
-        self.slot_update(slot);
+        let commitment_level = match status {
+            SlotStatus::Processed => CommitmentConfig::processed(),
+            SlotStatus::Rooted => CommitmentConfig::finalized(),
+            SlotStatus::Confirmed => CommitmentConfig::confirmed(),
+        };
+        let message = ChannelMessage::Slot(slot, parent.unwrap_or_default(), commitment_level);
+        self.notify_clients(message);
         Ok(())
     }
 
@@ -88,30 +98,57 @@ impl GeyserPlugin for GeyserPluginWebsocket {
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         // info!("notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
-        match transaction {
-            ReplicaTransactionInfoVersions::V0_0_2(_transaction_info) => {
-                //THE following line cause a SEG_FAULT wtf!
-                //info!("sending message to worker {:?}", transaction_info);
-                //
-                // if let Some(client) = self.client.as_ref() {
-                //     let res = client.send(transaction_info.index);
-                //     if let Err(e) = res {
-                //         return Err(GeyserPluginError::Custom(Box::new(e)));
-                //     }
-                // } else {
-                //     return Err(GeyserPluginError::Custom(Box::new(
-                //         GeyserPluginPostgresError::GenericError {
-                //             msg: "client not found".to_string(),
-                //         },
-                //     )));
-                // }
+        let ReplicaTransactionInfoVersions::V0_0_2(solana_transaction) = transaction else {
+            return Err(GeyserPluginError::TransactionUpdateError {
+                msg: "Unsupported transaction version".to_string(),
+            });
+        };
+        let message = solana_transaction.transaction.message();
+        let mut account_keys = vec![];
 
-                Ok(())
+        for index in 0.. {
+            let account = message.account_keys().get(index);
+            match account {
+                Some(account) => account_keys.push(*account),
+                None => break,
             }
-            _ => Err(GeyserPluginError::Custom(Box::new(
-                GeyserPluginPostgresError::VersionNotSupported,
-            ))),
         }
+
+        let v0_message = Message {
+            header: *message.header(),
+            account_keys,
+            recent_blockhash: *message.recent_blockhash(),
+            instructions: message.instructions().to_vec(),
+            address_table_lookups: message.message_address_table_lookups().to_vec(),
+        };
+
+        let status_meta = solana_transaction.transaction_status_meta;
+
+        let transaction = Transaction {
+            slot,
+            signatures: solana_transaction.transaction.signatures().to_vec(),
+            message: v0_message,
+            is_vote: solana_transaction.is_vote,
+            transasction_meta: TransactionMeta {
+                error: match &status_meta.status {
+                    Ok(_) => None,
+                    Err(e) => Some(e.clone()),
+                },
+                fee: status_meta.fee,
+                pre_balances: status_meta.pre_balances.clone(),
+                post_balances: status_meta.post_balances.clone(),
+                inner_instructions: status_meta.inner_instructions.clone(),
+                log_messages: status_meta.log_messages.clone(),
+                rewards: status_meta.rewards.clone(),
+                loaded_addresses: status_meta.loaded_addresses.clone(),
+                return_data: status_meta.return_data.clone(),
+                compute_units_consumed: status_meta.compute_units_consumed,
+            },
+            index: solana_transaction.index as u64,
+        };
+        let message = ChannelMessage::Transaction(Box::from(transaction));
+        self.notify_clients(message);
+        Ok(())
     }
 
     fn notify_block_metadata(
@@ -140,13 +177,18 @@ impl GeyserPluginWebsocket {
         }
     }
 
-    pub fn slot_update(&self, slot: u64) {
+    pub fn notify_clients(&self, message: ChannelMessage) {
         info!("sending slot update to clients");
         let clients = self.client_store.lock().unwrap();
-        for (_, tx) in clients.iter() {
-            let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
-                slot.to_string(),
-            ));
+        match message {
+            ChannelMessage::Slot(_, _, _) => {}
+            ChannelMessage::Transaction(transaction_update) => {
+                for (_, tx) in clients.iter() {
+                    let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
+                        serde_json::to_string(&transaction_update).unwrap(),
+                    ));
+                }
+            }
         }
     }
 
