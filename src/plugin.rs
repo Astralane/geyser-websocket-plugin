@@ -115,15 +115,15 @@ impl GeyserPlugin for GeyserPluginWebsocket {
             }
         }
         //
-        let v0_message = Message {
-            header: *message.header(),
-            account_keys,
-            recent_blockhash: *message.recent_blockhash(),
-            instructions: message.instructions().to_vec(),
-            address_table_lookups: message.message_address_table_lookups().to_vec(),
-        };
-
-        let status_meta = solana_transaction.transaction_status_meta;
+        // let v0_message = Message {
+        //     header: *message.header(),
+        //     account_keys,
+        //     recent_blockhash: *message.recent_blockhash(),
+        //     instructions: message.instructions().to_vec(),
+        //     address_table_lookups: message.message_address_table_lookups().to_vec(),
+        // };
+        //
+        // let status_meta = solana_transaction.transaction_status_meta;
 
         // let transaction = Transaction {
         //     slot,
