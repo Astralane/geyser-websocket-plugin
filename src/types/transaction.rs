@@ -27,7 +27,7 @@ pub struct TransactionMeta {
 pub struct Transaction {
     pub slot: u64,
     pub signatures: Vec<Signature>,
-    pub message: Message,
+    pub message: Option<Message>,
     pub is_vote: bool,
     pub transasction_meta: TransactionMeta,
     pub index: u64,
