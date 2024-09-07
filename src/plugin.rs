@@ -128,28 +128,28 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         let status_meta = solana_transaction.transaction_status_meta;
 
         info!("here3");
-        let transaction = Transaction {
-            slot,
-            signatures: solana_transaction.transaction.signatures().to_vec(),
-            message: None,
-            is_vote: solana_transaction.is_vote,
-            transasction_meta: TransactionMeta {
-                error: match &status_meta.status {
-                    Ok(_) => None,
-                    Err(e) => Some(e.clone()),
-                },
-                fee: status_meta.fee,
-                pre_balances: status_meta.pre_balances.clone(),
-                post_balances: status_meta.post_balances.clone(),
-                inner_instructions: status_meta.inner_instructions.clone(),
-                log_messages: status_meta.log_messages.clone(),
-                rewards: status_meta.rewards.clone(),
-                loaded_addresses: status_meta.loaded_addresses.clone(),
-                return_data: status_meta.return_data.clone(),
-                compute_units_consumed: status_meta.compute_units_consumed,
-            },
-            index: solana_transaction.index as u64,
-        };
+        // let transaction = Transaction {
+        //     slot,
+        //     signatures: solana_transaction.transaction.signatures().to_vec(),
+        //     message: None,
+        //     is_vote: solana_transaction.is_vote,
+        //     transasction_meta: TransactionMeta {
+        //         error: match &status_meta.status {
+        //             Ok(_) => None,
+        //             Err(e) => Some(e.clone()),
+        //         },
+        //         fee: status_meta.fee,
+        //         pre_balances: status_meta.pre_balances.clone(),
+        //         post_balances: status_meta.post_balances.clone(),
+        //         inner_instructions: status_meta.inner_instructions.clone(),
+        //         log_messages: status_meta.log_messages.clone(),
+        //         rewards: status_meta.rewards.clone(),
+        //         loaded_addresses: status_meta.loaded_addresses.clone(),
+        //         return_data: status_meta.return_data.clone(),
+        //         compute_units_consumed: status_meta.compute_units_consumed,
+        //     },
+        //     index: solana_transaction.index as u64,
+        // };
         info!("here4");
        // let message = ChannelMessage::Transaction(Box::new(transaction));
         //self.notify_clients(message);
