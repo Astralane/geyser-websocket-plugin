@@ -1,5 +1,5 @@
 use crate::plugin::GeyserPluginWebsocket;
-use solana_geyser_plugin_interface::geyser_plugin_interface::GeyserPlugin;
+use agave_geyser_plugin_interface::geyser_plugin_interface::GeyserPlugin;
 
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]
