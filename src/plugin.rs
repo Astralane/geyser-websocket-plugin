@@ -61,9 +61,10 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         info!("on_load: config_file: {:#?}", config_file);
         //run socket server in a tokio runtime
         let runtime = tokio::runtime::Runtime::new().unwrap();
-        let ws_handle = WebsocketServer::serve("127.0.0.1:9002", self.client_store.clone());
-        runtime.spawn(ws_handle);
-        //ru
+        runtime.spawn(WebsocketServer::serve(
+            "127.0.0.1:9002",
+            self.client_store.clone(),
+        ));
         Ok(())
     }
 

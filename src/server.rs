@@ -23,15 +23,10 @@ impl WebsocketServer {
         let listener = TcpListener::bind(addr).await.unwrap();
         let jh = tokio::spawn(async move {
             //race between listener and shutdown signal, shutdown takes precedence
-            tokio::select! {
-                _ = receiver => {}
-                _ = async {
-                    while let Ok((stream, _)) = listener.accept().await {
-                        let peer_addr = stream.peer_addr().unwrap();
-                        info!("Connection from {}", peer_addr);
-                        tokio::spawn(accept_connection(peer_addr, stream, clients.clone()));
-                    }
-                } => {}
+            while let Ok((stream, _)) = listener.accept().await {
+                let peer_addr = stream.peer_addr().unwrap();
+                info!("Connection from {}", peer_addr);
+                tokio::spawn(accept_connection(peer_addr, stream, clients.clone()));
             }
         });
         Self { shutdown, jh }
