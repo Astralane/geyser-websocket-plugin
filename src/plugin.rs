@@ -104,6 +104,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
             });
         };
 
+        info!("here1");
         let message = solana_transaction.transaction.message();
         let mut account_keys = vec![];
         //
@@ -114,6 +115,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
                 None => break,
             }
         }
+        info!("here2");
         //
         // let v0_message = Message {
         //     header: *message.header(),
@@ -125,6 +127,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         //
         let status_meta = solana_transaction.transaction_status_meta;
 
+        info!("here3");
         let transaction = Transaction {
             slot,
             signatures: solana_transaction.transaction.signatures().to_vec(),
@@ -147,6 +150,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
             },
             index: solana_transaction.index as u64,
         };
+        info!("here4");
        // let message = ChannelMessage::Transaction(Box::new(transaction));
         //self.notify_clients(message);
         Ok(())
