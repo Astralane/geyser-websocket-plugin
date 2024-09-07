@@ -130,7 +130,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         info!("here3");
         let transaction = Transaction {
             slot,
-            signatures: solana_transaction.transaction.signatures().to_vec(),
+            signatures:vec![],
             message: None,
             is_vote: solana_transaction.is_vote,
             transasction_meta: None,
