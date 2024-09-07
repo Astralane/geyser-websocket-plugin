@@ -19,9 +19,11 @@ pub type ClientStore = Arc<Mutex<HashMap<String, tokio::sync::broadcast::Sender<
 
 impl WebsocketServer {
     pub async fn serve(addr: &str, clients: ClientStore) -> Self {
+        info!("Starting websocket server on {}", addr);
         let (shutdown, receiver) = tokio::sync::oneshot::channel();
         let listener = TcpListener::bind(addr).await.unwrap();
         let jh = tokio::spawn(async move {
+            info!("Websocket server started");
             //race between listener and shutdown signal, shutdown takes precedence
             while let Ok((stream, _)) = listener.accept().await {
                 let peer_addr = stream.peer_addr().unwrap();
