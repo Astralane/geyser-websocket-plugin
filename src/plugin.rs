@@ -104,7 +104,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
             });
         };
 
-        let message = solana_transaction.transaction.message();
+        let message = solana_transaction.transaction.message().clone();
         let mut account_keys = vec![];
         //
         for index in 0.. {
@@ -116,9 +116,9 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         }
         //
         let v0_message = Message {
-            header: message.header().clone(),
+            header: *message.header(),
             account_keys,
-            recent_blockhash: message.recent_blockhash().clone(),
+            recent_blockhash: *message.recent_blockhash(),
             instructions: message.instructions().to_vec(),
             address_table_lookups: message.message_address_table_lookups().to_vec(),
         };
