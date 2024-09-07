@@ -104,7 +104,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
             });
         };
 
-        let message = solana_transaction.transaction.message().clone();
+        let message = solana_transaction.transaction.message();
         let mut account_keys = vec![];
         //
         for index in 0.. {
