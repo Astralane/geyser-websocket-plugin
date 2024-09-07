@@ -1,5 +1,4 @@
-use crate::plugin::GeyserPluginPostgres;
-use log::info;
+use crate::plugin::GeyserPluginWebsocket;
 use solana_geyser_plugin_interface::geyser_plugin_interface::GeyserPlugin;
 
 #[no_mangle]
@@ -9,9 +8,7 @@ use solana_geyser_plugin_interface::geyser_plugin_interface::GeyserPlugin;
 /// This function simply allocates a GeyserPluginHook,
 /// and returns a pointer to it as trait GeyserPlugin.
 pub unsafe extern "C" fn _create_plugin() -> *mut dyn GeyserPlugin {
-    info!("Creating plugin");
-    let plugin = GeyserPluginPostgres::new();
-    info!("Plugin created");
+    let plugin = GeyserPluginWebsocket::new();
     let plugin: Box<dyn GeyserPlugin> = Box::new(plugin);
     Box::into_raw(plugin)
 }

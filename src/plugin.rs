@@ -1,4 +1,4 @@
-use crate::client::Client;
+use crate::server::{ClientStore, WebsocketServer};
 use log::info;
 use solana_geyser_plugin_interface::geyser_plugin_interface::{
     GeyserPlugin, GeyserPluginError, ReplicaAccountInfoVersions, ReplicaBlockInfoVersions,
@@ -9,15 +9,30 @@ use thiserror::Error;
 
 /// This is the main object returned bu our dynamic library in entrypoint.rs
 #[derive(Debug)]
-pub struct GeyserPluginPostgres {
-    pub client: Option<Client>,
+pub struct GeyserPluginWebsocket {
+    pub client_store: ClientStore,
 }
 
-impl GeyserPluginPostgres {
+impl GeyserPluginWebsocket {
     pub fn new() -> Self {
         solana_logger::setup_with_default("info");
         info!("creating client");
-        Self { client: None }
+        Self {
+            client_store: Default::default(),
+        }
+    }
+
+    pub fn slot_update(&self, slot: u64) {
+        let clients = self.client_store.lock().unwrap();
+        for (_, tx) in clients.iter() {
+            let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
+                slot.to_string(),
+            ));
+        }
+    }
+
+    pub fn shutdown(&self) {
+        info!("shutting down");
     }
 }
 
@@ -29,14 +44,13 @@ pub enum GeyserPluginPostgresError {
     #[error("channel send error")]
     ChannelSendError(#[from] crossbeam_channel::SendError<usize>),
 
-
     #[error("version  not supported anymore")]
     VersionNotSupported,
 }
 
-impl GeyserPlugin for GeyserPluginPostgres {
+impl GeyserPlugin for GeyserPluginWebsocket {
     fn name(&self) -> &'static str {
-        "GeyserPluginPostgres"
+        "GeyserWebsocketPlugin"
     }
 
     fn on_load(
@@ -44,9 +58,12 @@ impl GeyserPlugin for GeyserPluginPostgres {
         config_file: &str,
         _is_reload: bool,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        // info!("on_load: config_file: {:#?}", config_file);
-        // let client = Client::new("postgres://postgres:postgres@localhost:5432", 4);
-        // self.client = Some(client);
+        info!("on_load: config_file: {:#?}", config_file);
+        //run socket server in a tokio runtime
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        let ws_handle = WebsocketServer::serve("127.0.0.1:9002", self.client_store.clone());
+        runtime.spawn(ws_handle);
+        //ru
         Ok(())
     }
 
@@ -78,6 +95,7 @@ impl GeyserPlugin for GeyserPluginPostgres {
         _status: SlotStatus,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         info!("update_slot_status: slot: {:#?}", slot);
+        self.slot_update(slot);
         Ok(())
     }
 
@@ -89,23 +107,22 @@ impl GeyserPlugin for GeyserPluginPostgres {
         info!("notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
         match transaction {
-            ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
-
+            ReplicaTransactionInfoVersions::V0_0_2(_transaction_info) => {
                 //THE following line cause a SEG_FAULT wtf!
                 //info!("sending message to worker {:?}", transaction_info);
-
-                if let Some(client) = self.client.as_ref() {
-                    let res = client.send(transaction_info.index);
-                    if let Err(e) = res {
-                        return Err(GeyserPluginError::Custom(Box::new(e)));
-                    }
-                } else {
-                    return Err(GeyserPluginError::Custom(Box::new(
-                        GeyserPluginPostgresError::GenericError {
-                            msg: "client not found".to_string(),
-                        },
-                    )));
-                }
+                //
+                // if let Some(client) = self.client.as_ref() {
+                //     let res = client.send(transaction_info.index);
+                //     if let Err(e) = res {
+                //         return Err(GeyserPluginError::Custom(Box::new(e)));
+                //     }
+                // } else {
+                //     return Err(GeyserPluginError::Custom(Box::new(
+                //         GeyserPluginPostgresError::GenericError {
+                //             msg: "client not found".to_string(),
+                //         },
+                //     )));
+                // }
 
                 Ok(())
             }
