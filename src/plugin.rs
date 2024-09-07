@@ -40,6 +40,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         info!("on_load: config_file: {:?}", config_file);
         //run socket server in a tokio runtime
         let runtime = tokio::runtime::Runtime::new().unwrap();
+        info!("starting runtime of ws server");
         runtime.spawn(WebsocketServer::serve(
             "127.0.0.1:9002",
             self.client_store.clone(),
@@ -138,6 +139,7 @@ impl GeyserPluginWebsocket {
     }
 
     pub fn slot_update(&self, slot: u64) {
+        info!("sending slot update to clients");
         let clients = self.client_store.lock().unwrap();
         for (_, tx) in clients.iter() {
             let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
