@@ -57,14 +57,14 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         _slot: u64,
         _is_startup: bool,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("update_account: account");
+        // info!("update_account: account");
         Ok(())
     }
 
     fn notify_end_of_startup(
         &self,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_end_of_startup");
+        // info!("notify_end_of_startup");
         Ok(())
     }
 
@@ -74,7 +74,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         _parent: Option<u64>,
         _status: SlotStatus,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("update_slot_status: slot: {:?}", slot);
+        // info!("update_slot_status: slot: {:?}", slot);
         self.slot_update(slot);
         Ok(())
     }
@@ -84,7 +84,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         transaction: ReplicaTransactionInfoVersions,
         slot: u64,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_transaction: transaction for {:?}", slot);
+        // info!("notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
         match transaction {
             ReplicaTransactionInfoVersions::V0_0_2(_transaction_info) => {
