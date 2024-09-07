@@ -123,7 +123,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         //     address_table_lookups: message.message_address_table_lookups().to_vec(),
         // };
         //
-        let status_meta = solana_transaction.transaction_status_meta;
+        //let status_meta = solana_transaction.transaction_status_meta;
 
         // let transaction = Transaction {
         //     slot,
