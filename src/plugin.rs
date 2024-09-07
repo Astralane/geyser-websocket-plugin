@@ -104,16 +104,16 @@ impl GeyserPlugin for GeyserPluginWebsocket {
             });
         };
 
-        // let message = solana_transaction.transaction.message();
-        // let mut account_keys = vec![];
+        let message = solana_transaction.transaction.message();
+        let mut account_keys = vec![];
         //
-        // for index in 0.. {
-        //     let account = message.account_keys().get(index);
-        //     match account {
-        //         Some(account) => account_keys.push(*account),
-        //         None => break,
-        //     }
-        // }
+        for index in 0.. {
+            let account = message.account_keys().get(index);
+            match account {
+                Some(account) => account_keys.push(*account),
+                None => break,
+            }
+        }
         //
         // let v0_message = Message {
         //     header: *message.header(),
