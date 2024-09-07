@@ -13,28 +13,6 @@ pub struct GeyserPluginWebsocket {
     pub client_store: ClientStore,
 }
 
-impl GeyserPluginWebsocket {
-    pub fn new() -> Self {
-        solana_logger::setup_with_default("info");
-        info!("creating client");
-        Self {
-            client_store: Default::default(),
-        }
-    }
-
-    pub fn slot_update(&self, slot: u64) {
-        let clients = self.client_store.lock().unwrap();
-        for (_, tx) in clients.iter() {
-            let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
-                slot.to_string(),
-            ));
-        }
-    }
-
-    pub fn shutdown(&self) {
-        info!("shutting down");
-    }
-}
 
 #[derive(Error, Debug)]
 pub enum GeyserPluginPostgresError {
@@ -58,7 +36,8 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         config_file: &str,
         _is_reload: bool,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("on_load: config_file: {:#?}", config_file);
+        solana_logger::setup_with_default("info");
+        info!("on_load: config_file: {:?}", config_file);
         //run socket server in a tokio runtime
         let runtime = tokio::runtime::Runtime::new().unwrap();
         runtime.spawn(WebsocketServer::serve(
@@ -95,7 +74,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         _parent: Option<u64>,
         _status: SlotStatus,
     ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("update_slot_status: slot: {:#?}", slot);
+        info!("update_slot_status: slot: {:?}", slot);
         self.slot_update(slot);
         Ok(())
     }
@@ -146,5 +125,28 @@ impl GeyserPlugin for GeyserPluginWebsocket {
 
     fn transaction_notifications_enabled(&self) -> bool {
         true
+    }
+}
+
+impl GeyserPluginWebsocket {
+    pub fn new() -> Self {
+        solana_logger::setup_with_default("info");
+        info!("creating client");
+        Self {
+            client_store: Default::default(),
+        }
+    }
+
+    pub fn slot_update(&self, slot: u64) {
+        let clients = self.client_store.lock().unwrap();
+        for (_, tx) in clients.iter() {
+            let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
+                slot.to_string(),
+            ));
+        }
+    }
+
+    pub fn shutdown(&self) {
+        info!("shutting down");
     }
 }
