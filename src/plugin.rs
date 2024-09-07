@@ -6,11 +6,13 @@ use solana_geyser_plugin_interface::geyser_plugin_interface::{
 };
 use std::fmt::Debug;
 use thiserror::Error;
+use tokio::runtime::Runtime;
 
 /// This is the main object returned bu our dynamic library in entrypoint.rs
 #[derive(Debug)]
 pub struct GeyserPluginWebsocket {
     pub client_store: ClientStore,
+    pub runtime: Runtime
 }
 
 
@@ -39,9 +41,8 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         solana_logger::setup_with_default("info");
         info!("on_load: config_file: {:?}", config_file);
         //run socket server in a tokio runtime
-        let runtime = tokio::runtime::Runtime::new().unwrap();
         info!("starting runtime of ws server");
-        runtime.spawn(WebsocketServer::serve(
+        self.runtime.spawn(WebsocketServer::serve(
             "127.0.0.1:9002",
             self.client_store.clone(),
         ));
@@ -135,6 +136,7 @@ impl GeyserPluginWebsocket {
         info!("creating client");
         Self {
             client_store: Default::default(),
+            runtime: Runtime::new().unwrap(),
         }
     }
 
