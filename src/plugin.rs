@@ -148,7 +148,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
             index: solana_transaction.index as u64,
         };
         let message = ChannelMessage::Transaction(Box::new(transaction));
-        self.notify_clients(message);
+        //self.notify_clients(message);
         Ok(())
     }
 
