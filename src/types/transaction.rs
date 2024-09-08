@@ -8,10 +8,7 @@ use solana_transaction_status::{EncodableWithMeta, EncodedTransaction, Transacti
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq,)]
 pub struct MessageTransactionInfo {
-    pub signature: Signature,
-    pub is_vote: bool,
-    pub transaction: EncodedTransaction,
-    pub index: usize,
+    pub result: EncodedTransaction,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq,)]
@@ -23,10 +20,7 @@ impl<'a> From<(&'a ReplicaTransactionInfoV2<'a>, u64)> for MessageTransaction {
     fn from((transaction, slot): (&'a ReplicaTransactionInfoV2<'a>, u64)) -> Self {
         Self {
             transaction: MessageTransactionInfo {
-                signature: *transaction.signature,
-                is_vote: transaction.is_vote,
-                transaction: transaction.transaction.to_versioned_transaction().encode_with_meta(UiTransactionEncoding::JsonParsed, transaction.transaction_status_meta),
-                index: transaction.index,
+                result: transaction.transaction.to_versioned_transaction().encode_with_meta(UiTransactionEncoding::JsonParsed, transaction.transaction_status_meta),
             },
             slot,
         }
