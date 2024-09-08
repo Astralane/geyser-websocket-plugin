@@ -102,10 +102,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
                 msg: "Unsupported transaction version".to_string(),
             });
         };
-
-        info!("here3");
         let transaction_message: MessageTransaction = (solana_transaction, slot).into();
-        info!("here4");
         let message = ChannelMessage::Transaction(Box::new(transaction_message));
         self.notify_clients(message);
         Ok(())

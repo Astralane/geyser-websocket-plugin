@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 use solana_sdk::{
     signature::Signature,
 };
-use solana_sdk::transaction::SanitizedTransaction;
-use solana_transaction_status::{TransactionStatusMeta, UiTransactionStatusMeta};
+use solana_sdk::transaction::{SanitizedTransaction, VersionedTransaction};
+use solana_transaction_status::{TransactionStatusMeta, UiTransaction, UiTransactionStatusMeta};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq,)]
 pub struct MessageTransactionInfo {
     pub signature: Signature,
     pub is_vote: bool,
-    //pub transaction: SanitizedTransaction,
+    pub transaction: VersionedTransaction,
     pub meta: UiTransactionStatusMeta,
     pub index: usize,
 }
@@ -26,7 +26,7 @@ impl<'a> From<(&'a ReplicaTransactionInfoV2<'a>, u64)> for MessageTransaction {
             transaction: MessageTransactionInfo {
                 signature: *transaction.signature,
                 is_vote: transaction.is_vote,
-                //transaction: transaction.transaction.clone(),
+                transaction: transaction.transaction.to_versioned_transaction(),
                 meta: transaction.transaction_status_meta.clone().into(),
                 index: transaction.index,
             },
