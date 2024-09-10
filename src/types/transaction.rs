@@ -1,28 +1,18 @@
 use agave_geyser_plugin_interface::geyser_plugin_interface::ReplicaTransactionInfoV2;
 use serde::{Deserialize, Serialize};
-use solana_sdk::{
-    signature::Signature,
-};
-use solana_sdk::transaction::{SanitizedTransaction, VersionedTransaction};
-use solana_transaction_status::{EncodableWithMeta, EncodedTransaction, TransactionStatusMeta, UiTransaction, UiTransactionEncoding, UiTransactionStatusMeta};
+use solana_transaction_status::{EncodableWithMeta, EncodedTransaction, UiTransactionEncoding};
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq,)]
-pub struct MessageTransactionInfo {
-    pub result: EncodedTransaction,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq,)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct MessageTransaction {
-    pub transaction: MessageTransactionInfo,
-    pub slot: u64,
+    pub transaction: EncodedTransaction,
 }
-impl<'a> From<(&'a ReplicaTransactionInfoV2<'a>, u64)> for MessageTransaction {
-    fn from((transaction, slot): (&'a ReplicaTransactionInfoV2<'a>, u64)) -> Self {
+impl<'a> From<&'a ReplicaTransactionInfoV2<'a>> for MessageTransaction {
+    fn from(tx: &'a ReplicaTransactionInfoV2<'a>) -> Self {
         Self {
-            transaction: MessageTransactionInfo {
-                result: transaction.transaction.to_versioned_transaction().encode_with_meta(UiTransactionEncoding::JsonParsed, transaction.transaction_status_meta),
-            },
-            slot,
+            transaction: tx.transaction.to_versioned_transaction().encode_with_meta(
+                UiTransactionEncoding::JsonParsed,
+                tx.transaction_status_meta,
+            ),
         }
     }
 }

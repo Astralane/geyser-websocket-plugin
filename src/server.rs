@@ -1,4 +1,5 @@
 use crate::plugin::GeyserPluginPostgresError;
+use crate::types::rpc::{ServerRequest, ServerResponse};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -15,10 +16,16 @@ pub struct WebsocketServer {
     jh: tokio::task::JoinHandle<()>,
 }
 
-pub type ClientStore = Arc<Mutex<HashMap<String, tokio::sync::broadcast::Sender<Message>>>>;
+pub type Subscribers = Arc<Mutex<HashMap<String, tokio::sync::broadcast::Sender<Message>>>>;
+
+#[derive(Clone, Debug, Default)]
+pub struct SubscriptionStore {
+    pub slot_subscribers: Subscribers,
+    pub transaction_subscribers: Subscribers,
+}
 
 impl WebsocketServer {
-    pub async fn serve(addr: &str, clients: ClientStore) -> Self {
+    pub async fn serve(addr: &str, subscriptions: SubscriptionStore) -> Self {
         info!("Starting websocket server on {}", addr);
         let (shutdown, receiver) = tokio::sync::oneshot::channel();
         let listener = TcpListener::bind(addr).await.unwrap();
@@ -27,8 +34,7 @@ impl WebsocketServer {
             //race between listener and shutdown signal, shutdown takes precedence
             while let Ok((stream, _)) = listener.accept().await {
                 let peer_addr = stream.peer_addr().unwrap();
-                info!("Connection from {}", peer_addr);
-                tokio::spawn(accept_connection(peer_addr, stream, clients.clone()));
+                tokio::spawn(accept_connection(peer_addr, stream, subscriptions.clone()));
             }
         });
         Self { shutdown, jh }
@@ -41,7 +47,7 @@ impl WebsocketServer {
     }
 }
 
-async fn accept_connection(peer: SocketAddr, stream: TcpStream, clients: ClientStore) {
+async fn accept_connection(peer: SocketAddr, stream: TcpStream, clients: SubscriptionStore) {
     let ws_stream = accept_async(stream)
         .await
         .expect("Error during websocket handshake");
@@ -56,13 +62,30 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, clients: ClientS
     while let Some(msg) = incoming.next().await {
         match msg {
             Ok(Message::Text(text)) => {
-                if text.eq("subscribe") {
-                    // add to subscription list
-                    {
-                        let mut client = clients.lock().unwrap();
-                        client.insert(client_id.clone(), tx.clone());
+                //parse the message to request
+                let Ok(request) = serde_json::from_str::<ServerRequest>(&text) else {
+                    warn!("Received invalid message: {:?}", text);
+                    continue;
+                };
+                match request.method.as_str() {
+                    "transaction_subscribe" => {
+                        clients
+                            .transaction_subscribers
+                            .lock()
+                            .unwrap()
+                            .insert(client_id.clone(), tx.clone());
                     }
-                    info!("{} subscribed", client_id);
+                    "slot_subscribe" => {
+                        clients
+                            .slot_subscribers
+                            .lock()
+                            .unwrap()
+                            .insert(client_id.clone(), tx.clone());
+                    }
+                    _ => {
+                        warn!("Received unhandled message: {:?}", request);
+                        continue;
+                    }
                 }
             }
             _ => {
@@ -71,8 +94,14 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, clients: ClientS
             }
         }
     }
+    //remove from subscribers
+    clients
+        .transaction_subscribers
+        .lock()
+        .unwrap()
+        .remove(&client_id);
+    clients.slot_subscribers.lock().unwrap().remove(&client_id);
 
-    clients.lock().unwrap().remove(&client_id);
     recv_task.abort();
     info!("{} disconnected", client_id);
 }

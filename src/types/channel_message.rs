@@ -1,8 +1,8 @@
-use solana_sdk::commitment_config::CommitmentConfig;
+use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
 
 #[derive(Debug, Clone)]
 pub enum ChannelMessage {
-    Slot(u64, u64, CommitmentConfig),
+    Slot(MessageSlotInfo),
     Transaction(Box<MessageTransaction>),
 }

@@ -1,23 +1,26 @@
-use crate::server::{ClientStore, WebsocketServer};
-use log::info;
+use crate::server::{SubscriptionStore, WebsocketServer};
+use crate::types::channel_message::ChannelMessage;
+use crate::types::rpc::ServerResponse;
+use crate::types::slot_info::MessageSlotInfo;
+use crate::types::transaction::MessageTransaction;
 use agave_geyser_plugin_interface::geyser_plugin_interface::{
     GeyserPlugin, GeyserPluginError, ReplicaAccountInfoVersions, ReplicaBlockInfoVersions,
     ReplicaTransactionInfoVersions, SlotStatus,
 };
-use std::fmt::Debug;
+use log::{error, info};
 use solana_sdk::commitment_config::CommitmentConfig;
+use std::fmt::Debug;
+use std::ops::Deref;
 use thiserror::Error;
 use tokio::runtime::Runtime;
-use crate::types::channel_message::ChannelMessage;
-use crate::types::transaction::{MessageTransaction, MessageTransactionInfo};
+use tokio_tungstenite::tungstenite::Message;
 
 /// This is the main object returned bu our dynamic library in entrypoint.rs
 #[derive(Debug)]
 pub struct GeyserPluginWebsocket {
-    pub client_store: ClientStore,
+    pub subscription_store: SubscriptionStore,
     pub runtime: Runtime,
 }
-
 
 #[derive(Error, Debug)]
 pub enum GeyserPluginPostgresError {
@@ -47,7 +50,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         info!("starting runtime of ws server");
         self.runtime.spawn(WebsocketServer::serve(
             "127.0.0.1:9002",
-            self.client_store.clone(),
+            self.subscription_store.clone(),
         ));
         Ok(())
     }
@@ -69,7 +72,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
     fn notify_end_of_startup(
         &self,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        // info!("notify_end_of_startup");
+        info!("notify_end_of_startup");
         Ok(())
     }
 
@@ -79,13 +82,17 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         parent: Option<u64>,
         status: SlotStatus,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        // info!("update_slot_status: slot: {:?}", slot);
+        info!("update_slot_status: slot: {:?}", slot);
         let commitment_level = match status {
             SlotStatus::Processed => CommitmentConfig::processed(),
             SlotStatus::Rooted => CommitmentConfig::finalized(),
             SlotStatus::Confirmed => CommitmentConfig::confirmed(),
         };
-        let message = ChannelMessage::Slot(slot, parent.unwrap_or_default(), commitment_level);
+        let message = ChannelMessage::Slot(MessageSlotInfo::new(
+            slot,
+            parent.unwrap_or(0),
+            commitment_level.commitment,
+        ));
         self.notify_clients(message);
         Ok(())
     }
@@ -102,7 +109,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
                 msg: "Unsupported transaction version".to_string(),
             });
         };
-        let transaction_message: MessageTransaction = (solana_transaction, slot).into();
+        let transaction_message: MessageTransaction = solana_transaction.into();
         let message = ChannelMessage::Transaction(Box::new(transaction_message));
         self.notify_clients(message);
         Ok(())
@@ -129,27 +136,46 @@ impl GeyserPluginWebsocket {
         solana_logger::setup_with_default("info");
         info!("creating client");
         Self {
-            client_store: Default::default(),
+            subscription_store: Default::default(),
             runtime: Runtime::new().unwrap(),
         }
     }
 
     pub fn notify_clients(&self, message: ChannelMessage) {
         info!("sending slot update to clients");
-        let clients = self.client_store.lock().unwrap();
         match message {
-            ChannelMessage::Slot(slot, parent, commit) => {
-                for (_, tx) in clients.iter() {
-                    let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
-                        slot.to_string(),
-                    ));
+            ChannelMessage::Slot(slot) => {
+                {
+                    let subscribers = self.subscription_store.slot_subscribers.lock().unwrap();
+                    for (_, tx) in subscribers.iter() {
+                        //give back server_response
+                        let response = ServerResponse::try_from(slot.clone());
+                        if let Ok(response) = response {
+                            let message = serde_json::to_string(&response).unwrap();
+                            let _ = tx.send(Message::Text(message));
+                        } else {
+                            error!("error converting slot update to server response");
+                        }
+                    }
                 }
             }
             ChannelMessage::Transaction(transaction_update) => {
-                for (_, tx) in clients.iter() {
-                    let _ = tx.send(tokio_tungstenite::tungstenite::Message::Text(
-                        serde_json::to_string(&transaction_update).unwrap(),
-                    ));
+                {
+                    let subscribers = self
+                        .subscription_store
+                        .transaction_subscribers
+                        .lock()
+                        .unwrap();
+                    for (_, tx) in subscribers.iter() {
+                        //give back server_response
+                        let response = ServerResponse::try_from(transaction_update.deref().clone());
+                        if let Ok(response) = response {
+                            let message = serde_json::to_string(&response).unwrap();
+                            let _ = tx.send(Message::Text(message));
+                        } else {
+                            error!("error converting transaction update to server response");
+                        }
+                    }
                 }
             }
         }

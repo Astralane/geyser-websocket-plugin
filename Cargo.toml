@@ -10,7 +10,6 @@ crate-type = ["cdylib", "rlib"]
 agave-geyser-plugin-interface = "=2.0.8"
 solana-logger = "=2.0.8"
 solana-sdk = "=2.0.8"
-solana-account-decoder = "=2.0.8"
 solana-transaction-status = "=2.0.8"
 
 log = "0.4.14"
@@ -22,3 +21,5 @@ tokio = { version = "1.40.0", features = ["full"] }
 tokio-stream = { version = "0.1.8", features = ["full"] }
 tokio-tungstenite = { version = "0.23.1" }
 futures-util = "0.3.3"
+
+#jsonrpsee = {version = "0.24.3", features = ["server"]}
