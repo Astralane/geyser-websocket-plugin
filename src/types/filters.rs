@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default, Debug)]
 pub struct Filter {
     pub is_vote: bool,
     pub include_accounts: Vec<String>,
     pub subscription_type: SubscriptionType,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum SubscriptionType {
     None,
     Slot,

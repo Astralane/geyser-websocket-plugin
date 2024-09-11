@@ -28,11 +28,11 @@ pub struct ServerConfig {
 
 impl WebsocketServer {
     pub async fn serve(addr: &str, subscriptions: ServerConfig) -> Self {
-        info!("Starting websocket server on {}", addr);
+        info!(target: "geyser", "Starting websocket server on {}", addr);
         let (shutdown, receiver) = tokio::sync::oneshot::channel();
         let listener = TcpListener::bind(addr).await.unwrap();
         let jh = tokio::spawn(async move {
-            info!("Websocket server started");
+            info!(target: "geyser", "Websocket server started");
             //race between listener and shutdown signal, shutdown takes precedence
             while let Ok((stream, _)) = listener.accept().await {
                 let peer_addr = stream.peer_addr().unwrap();
@@ -104,7 +104,7 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, config: ServerCo
     }
     //remove from subscribers
     recv_task.abort();
-    info!("{} disconnected", client_id);
+    info!(target: "geyser", "{} disconnected", client_id);
 }
 
 pub async fn send_geyser_updates(
@@ -121,7 +121,7 @@ pub async fn send_geyser_updates(
                 return;
             }
         };
-
+        info!(target: "geyser", "New subscriber: {:?}", filter);
         while let Ok(msg) = rx.recv().await {
             let response = ServerResponse {
                 result: msg.try_into().unwrap(),

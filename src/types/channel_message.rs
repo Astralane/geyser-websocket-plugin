@@ -27,4 +27,3 @@ impl TryInto<Value> for ChannelMessage {
         }
     }
 }
-

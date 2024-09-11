@@ -7,7 +7,7 @@ use agave_geyser_plugin_interface::geyser_plugin_interface::{
     GeyserPlugin, GeyserPluginError, ReplicaAccountInfoVersions, ReplicaBlockInfoVersions,
     ReplicaTransactionInfoVersions, SlotStatus,
 };
-use log::{error, info};
+use log::{error, info, warn};
 use solana_sdk::commitment_config::CommitmentConfig;
 use std::fmt::Debug;
 use std::ops::Deref;
@@ -51,7 +51,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         _is_reload: bool,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         solana_logger::setup_with_default("info");
-        info!("on_load: config_file: {:?}", config_file);
+        info!(target: "geyser", "on_load: config_file: {:?}", config_file);
         //run socket server in a tokio runtime
         let (slot_updates_tx, _) = tokio::sync::broadcast::channel(16);
         let (transaction_updates_tx, _) = tokio::sync::broadcast::channel(16);
@@ -76,7 +76,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
     }
 
     fn on_unload(&mut self) {
-        info!("on_unload");
+        info!(target: "geyser", "on_unload");
     }
 
     fn update_account(
@@ -85,14 +85,14 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         _slot: u64,
         _is_startup: bool,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        // info!("update_account: account");
+        // info!(target: "geyser", update_account: account");
         Ok(())
     }
 
     fn notify_end_of_startup(
         &self,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_end_of_startup");
+        info!(target: "geyser", "notify_end_of_startup");
         Ok(())
     }
 
@@ -102,7 +102,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         parent: Option<u64>,
         status: SlotStatus,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("update_slot_status: slot: {:?}", slot);
+        info!(target: "geyser", "update_slot_status: slot: {:?}", slot);
         let commitment_level = match status {
             SlotStatus::Processed => CommitmentConfig::processed(),
             SlotStatus::Rooted => CommitmentConfig::finalized(),
@@ -122,7 +122,7 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         transaction: ReplicaTransactionInfoVersions,
         slot: u64,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_transaction: transaction for {:?}", slot);
+        info!(target: "geyser", "notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
         let ReplicaTransactionInfoVersions::V0_0_2(solana_transaction) = transaction else {
             return Err(GeyserPluginError::TransactionUpdateError {
@@ -157,7 +157,7 @@ impl GeyserPluginWebsocket {
     }
 
     pub fn notify_clients(&self, message: ChannelMessage) {
-        info!("sending slot update to clients");
+        info!(target: "geyser", "sending slot update to clients");
         let result = match (message, self.inner.as_ref()) {
             (ChannelMessage::Slot(slot), Some(_)) => {
                 let inner = self.inner.as_ref().unwrap();
@@ -165,9 +165,11 @@ impl GeyserPluginWebsocket {
             }
             (ChannelMessage::Transaction(transaction_update), Some(_)) => {
                 let inner = self.inner.as_ref().unwrap();
-                Some(inner
-                    .transaction_updates_tx
-                    .send(ChannelMessage::Transaction(transaction_update)))
+                Some(
+                    inner
+                        .transaction_updates_tx
+                        .send(ChannelMessage::Transaction(transaction_update)),
+                )
             }
             _ => {
                 error!("Error sending message to clients");
@@ -176,13 +178,13 @@ impl GeyserPluginWebsocket {
         };
         if let Some(result) = result {
             match result {
-                Ok(_) => info!("message sent"),
+                Ok(_) => info!(target: "geyser", "message sent"),
                 Err(e) => error!("Error sending message: {:?}", e),
             }
         }
     }
 
     pub fn shutdown(&self) {
-        info!("shutting down");
+        warn!("shutting down");
     }
 }
