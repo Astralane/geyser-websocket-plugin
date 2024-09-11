@@ -1,4 +1,6 @@
 use crate::plugin::GeyserPluginPostgresError;
+use crate::types::channel_message::ChannelMessage;
+use crate::types::filters::{Filters, SubscriptionType};
 use crate::types::rpc::{ServerRequest, ServerResponse};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
@@ -18,14 +20,14 @@ pub struct WebsocketServer {
 
 pub type Subscribers = Arc<Mutex<HashMap<String, tokio::sync::broadcast::Sender<Message>>>>;
 
-#[derive(Clone, Debug, Default)]
-pub struct SubscriptionStore {
-    pub slot_subscribers: Subscribers,
-    pub transaction_subscribers: Subscribers,
+#[derive(Clone, Debug)]
+pub struct ServerConfig {
+    pub slot_subscribers: tokio::sync::broadcast::Sender<ChannelMessage>,
+    pub transaction_subscribers: tokio::sync::broadcast::Sender<ChannelMessage>,
 }
 
 impl WebsocketServer {
-    pub async fn serve(addr: &str, subscriptions: SubscriptionStore) -> Self {
+    pub async fn serve(addr: &str, subscriptions: ServerConfig) -> Self {
         info!("Starting websocket server on {}", addr);
         let (shutdown, receiver) = tokio::sync::oneshot::channel();
         let listener = TcpListener::bind(addr).await.unwrap();
@@ -47,17 +49,17 @@ impl WebsocketServer {
     }
 }
 
-async fn accept_connection(peer: SocketAddr, stream: TcpStream, clients: SubscriptionStore) {
+async fn accept_connection(peer: SocketAddr, stream: TcpStream, config: ServerConfig) {
     let ws_stream = accept_async(stream)
         .await
         .expect("Error during websocket handshake");
 
-    let (tx, rx) = tokio::sync::broadcast::channel(100);
     let (outgoing, mut incoming) = ws_stream.split();
     let client_id = peer.to_string();
 
+    let (filers_tx, filters_rx) = tokio::sync::mpsc::channel(1);
     //creat a task to receive events from geyser service and send to client
-    let recv_task = tokio::spawn(process_geyser_updates(rx, outgoing));
+    let recv_task = tokio::spawn(send_geyser_updates(config, filters_rx, outgoing));
 
     while let Some(msg) = incoming.next().await {
         match msg {
@@ -69,18 +71,24 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, clients: Subscri
                 };
                 match request.method.as_str() {
                     "transaction_subscribe" => {
-                        clients
-                            .transaction_subscribers
-                            .lock()
-                            .unwrap()
-                            .insert(client_id.clone(), tx.clone());
+                        filers_tx
+                            .send(Filters {
+                                is_vote: false,
+                                include_accounts: vec![],
+                                subscription_type: SubscriptionType::Transaction,
+                            })
+                            .await
+                            .unwrap();
                     }
                     "slot_subscribe" => {
-                        clients
-                            .slot_subscribers
-                            .lock()
-                            .unwrap()
-                            .insert(client_id.clone(), tx.clone());
+                        filers_tx
+                            .send(Filters {
+                                is_vote: false,
+                                include_accounts: vec![],
+                                subscription_type: SubscriptionType::Slot,
+                            })
+                            .await
+                            .unwrap();
                     }
                     _ => {
                         warn!("Received unhandled message: {:?}", request);
@@ -95,26 +103,36 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, clients: Subscri
         }
     }
     //remove from subscribers
-    clients
-        .transaction_subscribers
-        .lock()
-        .unwrap()
-        .remove(&client_id);
-    clients.slot_subscribers.lock().unwrap().remove(&client_id);
-
     recv_task.abort();
     info!("{} disconnected", client_id);
 }
 
-pub async fn process_geyser_updates(
-    mut rx: tokio::sync::broadcast::Receiver<Message>,
+pub async fn send_geyser_updates(
+    config: ServerConfig,
+    mut filters_rx: tokio::sync::mpsc::Receiver<Filters>,
     mut outgoing: SplitSink<WebSocketStream<TcpStream>, Message>,
 ) {
-    while let Ok(msg) = rx.recv().await {
-        info!("Sending message: {:?}", msg);
-        if let Err(e) = outgoing.send(msg).await {
-            error!("Error sending message: {:?}", e);
-            break;
+    let filter = filters_rx.recv().await;
+    if let Some(filter) = filter {
+        let mut rx = match filter.subscription_type {
+            SubscriptionType::Slot => config.slot_subscribers.subscribe(),
+            SubscriptionType::Transaction => config.transaction_subscribers.subscribe(),
+            _ => {
+                return;
+            }
+        };
+
+        while let Ok(msg) = rx.recv().await {
+            let response = ServerResponse {
+                result: msg.try_into().unwrap(),
+            };
+            if let Err(e) = outgoing
+                .send(Message::Text(serde_json::to_string(&response).unwrap()))
+                .await
+            {
+                error!("Error sending message: {:?}", e);
+                break;
+            }
         }
     }
 }

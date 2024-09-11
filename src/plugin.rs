@@ -1,4 +1,4 @@
-use crate::server::{SubscriptionStore, WebsocketServer};
+use crate::server::{ServerConfig, WebsocketServer};
 use crate::types::channel_message::ChannelMessage;
 use crate::types::rpc::ServerResponse;
 use crate::types::slot_info::MessageSlotInfo;
@@ -18,7 +18,13 @@ use tokio_tungstenite::tungstenite::Message;
 /// This is the main object returned bu our dynamic library in entrypoint.rs
 #[derive(Debug)]
 pub struct GeyserPluginWebsocket {
-    pub subscription_store: SubscriptionStore,
+    inner: Option<GeyserPluginWebsocketInner>,
+}
+
+#[derive(Debug)]
+pub struct GeyserPluginWebsocketInner {
+    pub slot_updates_tx: tokio::sync::broadcast::Sender<ChannelMessage>,
+    pub transaction_updates_tx: tokio::sync::broadcast::Sender<ChannelMessage>,
     pub runtime: Runtime,
 }
 
@@ -47,11 +53,25 @@ impl GeyserPlugin for GeyserPluginWebsocket {
         solana_logger::setup_with_default("info");
         info!("on_load: config_file: {:?}", config_file);
         //run socket server in a tokio runtime
-        info!("starting runtime of ws server");
-        self.runtime.spawn(WebsocketServer::serve(
-            "127.0.0.1:9002",
-            self.subscription_store.clone(),
-        ));
+        let (slot_updates_tx, _) = tokio::sync::broadcast::channel(16);
+        let (transaction_updates_tx, _) = tokio::sync::broadcast::channel(16);
+
+        let runtime = Runtime::new().unwrap();
+        let config = ServerConfig {
+            slot_subscribers: slot_updates_tx.clone(),
+            transaction_subscribers: transaction_updates_tx.clone(),
+        };
+        runtime.spawn(async move {
+            WebsocketServer::serve("127.0.0.1:9002", config).await;
+        });
+
+        let inner = GeyserPluginWebsocketInner {
+            slot_updates_tx,
+            transaction_updates_tx,
+            runtime,
+        };
+
+        self.inner = Some(inner);
         Ok(())
     }
 
@@ -133,50 +153,24 @@ impl GeyserPlugin for GeyserPluginWebsocket {
 
 impl GeyserPluginWebsocket {
     pub fn new() -> Self {
-        solana_logger::setup_with_default("info");
-        info!("creating client");
-        Self {
-            subscription_store: Default::default(),
-            runtime: Runtime::new().unwrap(),
-        }
+        Self { inner: None }
     }
 
     pub fn notify_clients(&self, message: ChannelMessage) {
         info!("sending slot update to clients");
-        match message {
-            ChannelMessage::Slot(slot) => {
-                {
-                    let subscribers = self.subscription_store.slot_subscribers.lock().unwrap();
-                    for (_, tx) in subscribers.iter() {
-                        //give back server_response
-                        let response = ServerResponse::try_from(slot.clone());
-                        if let Ok(response) = response {
-                            let message = serde_json::to_string(&response).unwrap();
-                            let _ = tx.send(Message::Text(message));
-                        } else {
-                            error!("error converting slot update to server response");
-                        }
-                    }
-                }
+        match (message, self.inner.as_ref()) {
+            (ChannelMessage::Slot(slot), Some(_)) => {
+                let inner = self.inner.as_ref().unwrap();
+                let _ = inner.slot_updates_tx.send(ChannelMessage::Slot(slot));
             }
-            ChannelMessage::Transaction(transaction_update) => {
-                {
-                    let subscribers = self
-                        .subscription_store
-                        .transaction_subscribers
-                        .lock()
-                        .unwrap();
-                    for (_, tx) in subscribers.iter() {
-                        //give back server_response
-                        let response = ServerResponse::try_from(transaction_update.deref().clone());
-                        if let Ok(response) = response {
-                            let message = serde_json::to_string(&response).unwrap();
-                            let _ = tx.send(Message::Text(message));
-                        } else {
-                            error!("error converting transaction update to server response");
-                        }
-                    }
-                }
+            (ChannelMessage::Transaction(transaction_update), Some(_)) => {
+                let inner = self.inner.as_ref().unwrap();
+                let _ = inner
+                    .transaction_updates_tx
+                    .send(ChannelMessage::Transaction(transaction_update));
+            }
+            _ => {
+                error!("Error sending message to clients, inner not found");
             }
         }
     }
