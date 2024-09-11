@@ -158,19 +158,26 @@ impl GeyserPluginWebsocket {
 
     pub fn notify_clients(&self, message: ChannelMessage) {
         info!("sending slot update to clients");
-        match (message, self.inner.as_ref()) {
+        let result = match (message, self.inner.as_ref()) {
             (ChannelMessage::Slot(slot), Some(_)) => {
                 let inner = self.inner.as_ref().unwrap();
-                let _ = inner.slot_updates_tx.send(ChannelMessage::Slot(slot));
+                Some(inner.slot_updates_tx.send(ChannelMessage::Slot(slot)))
             }
             (ChannelMessage::Transaction(transaction_update), Some(_)) => {
                 let inner = self.inner.as_ref().unwrap();
-                let _ = inner
+                Some(inner
                     .transaction_updates_tx
-                    .send(ChannelMessage::Transaction(transaction_update));
+                    .send(ChannelMessage::Transaction(transaction_update)))
             }
             _ => {
-                error!("Error sending message to clients, inner not found");
+                error!("Error sending message to clients");
+                None
+            }
+        };
+        if let Some(result) = result {
+            match result {
+                Ok(_) => info!("message sent"),
+                Err(e) => error!("Error sending message: {:?}", e),
             }
         }
     }

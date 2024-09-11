@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, Default)]
-pub struct Filters {
+pub struct Filter {
     pub is_vote: bool,
     pub include_accounts: Vec<String>,
     pub subscription_type: SubscriptionType,
