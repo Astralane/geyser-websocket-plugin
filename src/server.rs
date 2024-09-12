@@ -1,6 +1,6 @@
 use crate::plugin::GeyserPluginPostgresError;
 use crate::types::channel_message::ChannelMessage;
-use crate::types::filters::{Filter, SubscriptionType};
+use crate::types::filters::{ResponseFilter, SubscriptionType};
 use crate::types::rpc::{ServerRequest, ServerResponse};
 use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
@@ -72,7 +72,7 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, config: ServerCo
                 match request.method.as_str() {
                     "transaction_subscribe" => {
                         filers_tx
-                            .send(Filter {
+                            .send(ResponseFilter {
                                 is_vote: false,
                                 include_accounts: vec![],
                                 subscription_type: SubscriptionType::Transaction,
@@ -82,7 +82,7 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, config: ServerCo
                     }
                     "slot_subscribe" => {
                         filers_tx
-                            .send(Filter {
+                            .send(ResponseFilter {
                                 is_vote: false,
                                 include_accounts: vec![],
                                 subscription_type: SubscriptionType::Slot,
@@ -109,7 +109,7 @@ async fn accept_connection(peer: SocketAddr, stream: TcpStream, config: ServerCo
 
 pub async fn send_geyser_updates(
     config: ServerConfig,
-    mut filters_rx: tokio::sync::mpsc::Receiver<Filter>,
+    mut filters_rx: tokio::sync::mpsc::Receiver<ResponseFilter>,
     mut outgoing: SplitSink<WebSocketStream<TcpStream>, Message>,
 ) {
     let filter = filters_rx.recv().await;

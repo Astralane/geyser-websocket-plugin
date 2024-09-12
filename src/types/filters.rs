@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, Default, Debug)]
-pub struct Filter {
+pub struct ResponseFilter {
     pub is_vote: bool,
     pub include_accounts: Vec<String>,
     pub subscription_type: SubscriptionType,
@@ -19,3 +19,4 @@ impl Default for SubscriptionType {
         SubscriptionType::None
     }
 }
+
