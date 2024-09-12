@@ -37,7 +37,7 @@ impl ChannelMessage{
             }
             ChannelMessage::Transaction(transaction) => {
                 // check for vote filter
-                if !filter.is_vote
+                return true
             }
         }
     }
