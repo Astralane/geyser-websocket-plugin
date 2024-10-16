@@ -78,6 +78,8 @@ pub struct TransactionNotification {
     pub signature: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RpcAccountInfoConfig {
     pub encoding: Option<UiEncoding>, // supported values: base58, base64, base64+zstd, jsonParsed
     pub commitment: Option<CommitmentConfig>, // supported values: finalized, confirmed, processed - defaults to finalized

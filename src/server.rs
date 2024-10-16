@@ -1,5 +1,5 @@
 use crate::rpc_pubsub::GeyserPubSubServer;
-use crate::types::account::MessageAccountInfo;
+use crate::types::account::{MessageAccount, MessageAccountInfo};
 use crate::types::filters::{RpcAccountInfoConfig, RpcTransactionsConfig};
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
@@ -18,7 +18,7 @@ pub struct GeyserPubSubImpl {
     pub shutdown: Arc<AtomicBool>,
     pub slot_stream: broadcast::Receiver<MessageSlotInfo>,
     pub transaction_stream: broadcast::Receiver<MessageTransaction>,
-    pub account_stream: broadcast::Receiver<MessageAccountInfo>,
+    pub account_stream: broadcast::Receiver<MessageAccount>,
 }
 
 impl GeyserPubSubImpl {
@@ -26,7 +26,7 @@ impl GeyserPubSubImpl {
         shutdown: Arc<AtomicBool>,
         slot_stream: broadcast::Receiver<MessageSlotInfo>,
         transaction_stream: broadcast::Receiver<MessageTransaction>,
-        account_stream: broadcast::Receiver<MessageAccountInfo>,
+        account_stream: broadcast::Receiver<MessageAccount>,
     ) -> Self {
         Self {
             shutdown,
