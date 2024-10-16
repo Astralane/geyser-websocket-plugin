@@ -1,138 +1,106 @@
-use crate::plugin::GeyserPluginPostgresError;
-use crate::types::channel_message::ChannelMessage;
-use crate::types::filters::{ResponseFilter, SubscriptionType};
-use crate::types::rpc::{ServerRequest, ServerResponse};
-use futures_util::stream::SplitSink;
-use futures_util::{SinkExt, StreamExt};
-use log::{error, info, warn};
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use tokio::net::{TcpListener, TcpStream};
-use tokio_tungstenite::tungstenite::Message;
-use tokio_tungstenite::{accept_async, WebSocketStream};
+use crate::rpc_pubsub::GeyserPubSubServer;
+use crate::types::account::MessageAccountInfo;
+use crate::types::filters::{RpcAccountInfoConfig, RpcTransactionsConfig};
+use crate::types::slot_info::MessageSlotInfo;
+use crate::types::transaction::MessageTransaction;
+use jsonrpsee::core::{async_trait, SubscriptionResult};
+use jsonrpsee::tracing::error;
+use jsonrpsee::PendingSubscriptionSink;
+use log::{debug, warn};
+use solana_sdk::commitment_config::CommitmentConfig;
+use solana_sdk::pubkey::Pubkey;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tokio::sync::broadcast;
+use tokio::sync::broadcast::error::RecvError;
 
-#[derive(Debug)]
-pub struct WebsocketServer {
-    shutdown: tokio::sync::oneshot::Sender<()>,
-    jh: tokio::task::JoinHandle<()>,
+pub struct GeyserPubSubImpl {
+    pub shutdown: Arc<AtomicBool>,
+    pub slot_stream: broadcast::Receiver<MessageSlotInfo>,
+    pub transaction_stream: broadcast::Receiver<MessageTransaction>,
+    pub account_stream: broadcast::Receiver<MessageAccountInfo>,
 }
 
-pub type Subscribers = Arc<Mutex<HashMap<String, tokio::sync::broadcast::Sender<Message>>>>;
-
-#[derive(Clone, Debug)]
-pub struct ServerConfig {
-    pub slot_subscribers: tokio::sync::broadcast::Sender<ChannelMessage>,
-    pub transaction_subscribers: tokio::sync::broadcast::Sender<ChannelMessage>,
-}
-
-impl WebsocketServer {
-    pub async fn serve(addr: &str, subscriptions: ServerConfig) -> Self {
-        info!(target: "geyser", "Starting websocket server on {}", addr);
-        let (shutdown, receiver) = tokio::sync::oneshot::channel();
-        let listener = TcpListener::bind(addr).await.unwrap();
-        let jh = tokio::spawn(async move {
-            info!(target: "geyser", "Websocket server started");
-            //race between listener and shutdown signal, shutdown takes precedence
-            while let Ok((stream, _)) = listener.accept().await {
-                let peer_addr = stream.peer_addr().unwrap();
-                tokio::spawn(accept_connection(peer_addr, stream, subscriptions.clone()));
-            }
-        });
-        Self { shutdown, jh }
-    }
-
-    //shutdown the server
-    pub async fn shutdown(self) {
-        self.shutdown.send(()).unwrap();
-        self.jh.await.unwrap();
+impl GeyserPubSubImpl {
+    pub fn new(
+        shutdown: Arc<AtomicBool>,
+        slot_stream: broadcast::Receiver<MessageSlotInfo>,
+        transaction_stream: broadcast::Receiver<MessageTransaction>,
+        account_stream: broadcast::Receiver<MessageAccountInfo>,
+    ) -> Self {
+        Self {
+            shutdown,
+            slot_stream,
+            transaction_stream,
+            account_stream,
+        }
     }
 }
 
-async fn accept_connection(peer: SocketAddr, stream: TcpStream, config: ServerConfig) {
-    let ws_stream = accept_async(stream)
-        .await
-        .expect("Error during websocket handshake");
-
-    let (outgoing, mut incoming) = ws_stream.split();
-    let client_id = peer.to_string();
-
-    let (filers_tx, filters_rx) = tokio::sync::mpsc::channel(1);
-    //creat a task to receive events from geyser service and send to client
-    let recv_task = tokio::spawn(send_geyser_updates(config, filters_rx, outgoing));
-
-    while let Some(msg) = incoming.next().await {
-        match msg {
-            Ok(Message::Text(text)) => {
-                //parse the message to request
-                let Ok(request) = serde_json::from_str::<ServerRequest>(&text) else {
-                    warn!("Received invalid message: {:?}", text);
-                    continue;
-                };
-                match request.method.as_str() {
-                    "transaction_subscribe" => {
-                        filers_tx
-                            .send(ResponseFilter {
-                                is_vote: false,
-                                include_accounts: vec![],
-                                subscription_type: SubscriptionType::Transaction,
-                            })
-                            .await
-                            .unwrap();
+#[async_trait]
+impl GeyserPubSubServer for GeyserPubSubImpl {
+    async fn slot_subscribe(
+        &self,
+        pending: PendingSubscriptionSink,
+        config: Option<CommitmentConfig>,
+    ) -> SubscriptionResult {
+        let sink = pending.accept().await?;
+        let mut slot_stream = self.slot_stream.resubscribe();
+        let stop = self.shutdown.clone();
+        tokio::spawn(async move {
+            loop {
+                //check if shutdown is requested
+                if stop.load(Ordering::Relaxed) {
+                    return;
+                }
+                let slot_response = slot_stream.recv().await;
+                match slot_response {
+                    Ok(slot) => {
+                        if sink.is_closed() {
+                            return;
+                        }
+                        //add filters here.
+                        let resp = jsonrpsee::SubscriptionMessage::from_json(&slot).unwrap();
+                        match sink.send(resp).await {
+                            Ok(_) => {
+                                continue;
+                            }
+                            Err(e) => {
+                                error!("Error sending slot response: {:?}", e);
+                                return;
+                            }
+                        }
                     }
-                    "slot_subscribe" => {
-                        filers_tx
-                            .send(ResponseFilter {
-                                is_vote: false,
-                                include_accounts: vec![],
-                                subscription_type: SubscriptionType::Slot,
-                            })
-                            .await
-                            .unwrap();
-                    }
-                    _ => {
-                        warn!("Received unhandled message: {:?}", request);
-                        continue;
-                    }
+                    Err(e) => match e {
+                        RecvError::Closed => {
+                            debug!("slot subscription Closed");
+                            return;
+                        }
+                        RecvError::Lagged(e) => {
+                            warn!("slot subscription Lagged");
+                            continue;
+                        }
+                    },
                 }
             }
-            _ => {
-                warn!("Received unhandled message: {:?}", msg);
-                break;
-            }
-        }
+        });
+        Ok(())
     }
-    //remove from subscribers
-    recv_task.abort();
-    info!(target: "geyser", "{} disconnected", client_id);
-}
 
-pub async fn send_geyser_updates(
-    config: ServerConfig,
-    mut filters_rx: tokio::sync::mpsc::Receiver<ResponseFilter>,
-    mut outgoing: SplitSink<WebSocketStream<TcpStream>, Message>,
-) {
-    let filter = filters_rx.recv().await;
-    if let Some(filter) = filter {
-        let mut rx = match filter.subscription_type {
-            SubscriptionType::Slot => config.slot_subscribers.subscribe(),
-            SubscriptionType::Transaction => config.transaction_subscribers.subscribe(),
-            _ => {
-                return;
-            }
-        };
-        info!(target: "geyser", "New subscriber: {:?}", filter);
-        while let Ok(msg) = rx.recv().await {
-            let response = ServerResponse {
-                result: msg.try_into().unwrap(),
-            };
-            if let Err(e) = outgoing
-                .send(Message::Text(serde_json::to_string(&response).unwrap()))
-                .await
-            {
-                error!("Error sending message: {:?}", e);
-                break;
-            }
-        }
+    async fn transaction_subscribe(
+        &self,
+        pending: PendingSubscriptionSink,
+        config: RpcTransactionsConfig,
+    ) -> SubscriptionResult {
+        todo!()
+    }
+
+    async fn account_update_subscribe(
+        &self,
+        pending: PendingSubscriptionSink,
+        pub_key: Pubkey,
+        config: RpcAccountInfoConfig,
+    ) -> SubscriptionResult {
+        todo!()
     }
 }

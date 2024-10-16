@@ -3,13 +3,13 @@ use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSlotInfo {
-    slot: u64,
-    parent: u64,
-    commitment: CommitmentLevel,
+    pub(crate) slot: u64,
+    pub(crate) parent: Option<u64>,
+    pub(crate) commitment: CommitmentLevel,
 }
 
 impl MessageSlotInfo {
-    pub fn new(slot: u64, parent: u64, commitment: CommitmentLevel) -> Self {
+    pub fn new(slot: u64, parent: Option<u64>, commitment: CommitmentLevel) -> Self {
         Self {
             slot,
             parent,

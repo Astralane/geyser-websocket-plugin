@@ -6,6 +6,7 @@ use solana_transaction_status::{EncodableWithMeta, EncodedTransaction, UiTransac
 pub struct MessageTransaction {
     pub transaction: EncodedTransaction,
 }
+
 impl<'a> From<&'a ReplicaTransactionInfoV2<'a>> for MessageTransaction {
     fn from(tx: &'a ReplicaTransactionInfoV2<'a>) -> Self {
         Self {
