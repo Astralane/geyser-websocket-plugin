@@ -107,7 +107,9 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         info!(target: "geyser", "on_unload");
         //do cleanup
         if let Some(inner) = self.inner.take() {
-            inner.shutdown.store(true, std::sync::atomic::Ordering::Relaxed);
+            inner
+                .shutdown
+                .store(true, std::sync::atomic::Ordering::Relaxed);
             let _ = inner.server_hdl.stop();
             inner.runtime.shutdown_timeout(Duration::from_secs(30));
         }

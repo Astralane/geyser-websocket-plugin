@@ -1,4 +1,4 @@
-use crate::plugin::{GeyserWebsocketPlugin};
+use crate::plugin::GeyserWebsocketPlugin;
 use agave_geyser_plugin_interface::geyser_plugin_interface::GeyserPlugin;
 
 #[no_mangle]
