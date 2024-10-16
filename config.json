@@ -1,6 +1,6 @@
 {
-  "libpath": "target/debug/libgeyser_test_plugin.so",
+  "libpath": "target/release/libgeyser_test_plugin.so",
   "log": {
-    "level": "info"
+    "level": "debug"
   }
 }

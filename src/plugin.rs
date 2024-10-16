@@ -1,87 +1,177 @@
-use crate::client::Client;
-use crate::database::TransactionDTO;
-use crate::service::{DBMessage, DBWorkerMessage};
-use log::info;
-use solana_geyser_plugin_interface::geyser_plugin_interface::{
+use crate::rpc_pubsub::GeyserPubSubServer;
+use crate::server::GeyserPubSubImpl;
+use crate::types::account::MessageAccount;
+use crate::types::slot_info::MessageSlotInfo;
+use crate::types::transaction::MessageTransaction;
+use agave_geyser_plugin_interface::geyser_plugin_interface::{
     GeyserPlugin, GeyserPluginError, ReplicaAccountInfoVersions, ReplicaBlockInfoVersions,
     ReplicaTransactionInfoVersions, SlotStatus,
 };
+use jsonrpsee::server::{ServerBuilder, ServerHandle};
+use solana_sdk::commitment_config::CommitmentConfig;
 use std::fmt::Debug;
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
+use std::time::Duration;
 use thiserror::Error;
+use tokio::runtime::Runtime;
+use tracing::{error, info};
 
-/// This is the main object returned bu our dynamic library in entrypoint.rs
 #[derive(Debug)]
-pub struct GeyserPluginPostgres {
-    pub client: Option<Client>,
+pub struct GeyserWebsocketPlugin {
+    inner: Option<GeyserPluginWebsocketInner>,
 }
-
-impl GeyserPluginPostgres {
+impl GeyserWebsocketPlugin {
     pub fn new() -> Self {
-        solana_logger::setup_with_default("info");
-        info!("creating client");
-        Self { client: None }
+        Self { inner: None }
     }
 }
 
+#[derive(Debug)]
+pub struct GeyserPluginWebsocketInner {
+    pub shutdown: Arc<AtomicBool>,
+    pub slot_updates_tx: tokio::sync::broadcast::Sender<MessageSlotInfo>,
+    pub transaction_updates_tx: tokio::sync::broadcast::Sender<MessageTransaction>,
+    pub account_updates_tx: tokio::sync::broadcast::Sender<MessageAccount>,
+    pub server_hdl: ServerHandle,
+    pub runtime: Runtime,
+}
+
 #[derive(Error, Debug)]
-pub enum GeyserPluginPostgresError {
+pub enum GeyserPluginWebsocketError {
     #[error("Generic Error message: ({msg})")]
     GenericError { msg: String },
-
-    #[error("channel send error")]
-    ChannelSendError(#[from] crossbeam_channel::SendError<DBWorkerMessage>),
-
-    #[error("Database internal error message")]
-    DatabaseError(#[from] diesel::result::Error),
 
     #[error("version  not supported anymore")]
     VersionNotSupported,
 }
 
-impl GeyserPlugin for GeyserPluginPostgres {
+impl From<GeyserPluginWebsocketError> for GeyserPluginError {
+    fn from(e: GeyserPluginWebsocketError) -> Self {
+        GeyserPluginError::Custom(Box::new(e))
+    }
+}
+
+impl GeyserPlugin for GeyserWebsocketPlugin {
     fn name(&self) -> &'static str {
-        "GeyserPluginPostgres"
+        "GeyserWebsocketPlugin"
     }
 
     fn on_load(
         &mut self,
         config_file: &str,
         _is_reload: bool,
-    ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("on_load: config_file: {:#?}", config_file);
-        let client = Client::new("postgres://postgres:postgres@localhost:5432", 4);
-        self.client = Some(client);
+    ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
+        solana_logger::setup_with_default("info");
+        info!(target: "geyser", "on_load: config_file: {:?}", config_file);
+
+        //run socket server in a tokio runtime
+        let (slot_updates_tx, slot_updates_rx) = tokio::sync::broadcast::channel(16);
+        let (transaction_updates_tx, transaction_updates_rx) = tokio::sync::broadcast::channel(16);
+        let (account_updates_tx, account_updates_rx) = tokio::sync::broadcast::channel(16);
+        let shutdown = Arc::new(AtomicBool::new(false));
+
+        let runtime = Runtime::new().map_err(|e| {
+            error!(target: "geyser", "Error creating runtime: {:?}", e);
+            GeyserPluginWebsocketError::GenericError {
+                msg: "Error creating runtime".to_string(),
+            }
+        })?;
+
+        let pubsub = GeyserPubSubImpl::new(
+            shutdown.clone(),
+            slot_updates_rx,
+            transaction_updates_rx,
+            account_updates_rx,
+        );
+
+        let ws_server_handle = runtime.block_on(async move {
+            let hdl = ServerBuilder::default()
+                .ws_only()
+                .build("127.0.0.1:10050")
+                .await
+                .unwrap()
+                .start(pubsub.into_rpc());
+            Ok::<_, GeyserPluginError>(hdl)
+        })?;
+
+        let inner = GeyserPluginWebsocketInner {
+            shutdown,
+            slot_updates_tx,
+            transaction_updates_tx,
+            account_updates_tx,
+            server_hdl: ws_server_handle,
+            runtime,
+        };
+
+        self.inner = Some(inner);
         Ok(())
     }
 
     fn on_unload(&mut self) {
-        info!("on_unload");
+        info!(target: "geyser", "on_unload");
+        //do cleanup
+        if let Some(inner) = self.inner.take() {
+            inner
+                .shutdown
+                .store(true, std::sync::atomic::Ordering::Relaxed);
+            let _ = inner.server_hdl.stop();
+            inner.runtime.shutdown_timeout(Duration::from_secs(30));
+        }
     }
 
     fn update_account(
         &self,
-        _account: ReplicaAccountInfoVersions,
-        _slot: u64,
-        _is_startup: bool,
-    ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("update_account: account");
+        account: ReplicaAccountInfoVersions,
+        slot: u64,
+        is_startup: bool,
+    ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
+        // info!(target: "geyser", update_account: account");
+        let account = match account {
+            ReplicaAccountInfoVersions::V0_0_1(_info) => {
+                unreachable!("ReplicaAccountInfoVersions::V0_0_1 is not supported")
+            }
+            ReplicaAccountInfoVersions::V0_0_2(_info) => {
+                unreachable!("ReplicaAccountInfoVersions::V0_0_2 is not supported")
+            }
+            ReplicaAccountInfoVersions::V0_0_3(info) => info,
+        };
+        if let Some(inner) = self.inner.as_ref() {
+            if let Err(e) = inner
+                .account_updates_tx
+                .send((account, slot, is_startup).into())
+            {
+                error!(target: "geyser", "Error sending account update: {:?}", e);
+            }
+        }
         Ok(())
     }
 
     fn notify_end_of_startup(
         &self,
-    ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_end_of_startup");
+    ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
+        info!(target: "geyser", "notify_end_of_startup");
         Ok(())
     }
 
     fn update_slot_status(
         &self,
         slot: u64,
-        _parent: Option<u64>,
-        _status: SlotStatus,
-    ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("update_slot_status: slot: {:#?}", slot);
+        parent: Option<u64>,
+        status: SlotStatus,
+    ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
+        info!(target: "geyser", "update_slot_status: slot: {:?}", slot);
+        let commitment = match status {
+            SlotStatus::Processed => CommitmentConfig::processed(),
+            SlotStatus::Confirmed => CommitmentConfig::confirmed(),
+            SlotStatus::Rooted => CommitmentConfig::finalized(),
+        };
+        let message = MessageSlotInfo::new(slot, parent, commitment.commitment);
+        if let Some(inner) = self.inner.as_ref() {
+            if let Err(e) = inner.slot_updates_tx.send(message) {
+                error!(target: "geyser", "Error sending slot update: {:?}", e);
+            }
+        }
         Ok(())
     }
 
@@ -89,62 +179,32 @@ impl GeyserPlugin for GeyserPluginPostgres {
         &self,
         transaction: ReplicaTransactionInfoVersions,
         slot: u64,
-    ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!("notify_transaction: transaction for {:#?}", slot);
+    ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
+        info!(target: "geyser", "notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
-        match transaction {
-            ReplicaTransactionInfoVersions::V0_0_2(transaction_info) => {
-                // info!(
-                //     "notify_transaction: transaction_info: {:#?}",
-                //     transaction_info
-                // );
-
-                let tx = TransactionDTO {
-                    signature: transaction_info.signature.to_string(),
-                    fee: transaction_info
-                        .transaction_status_meta
-                        .fee
-                        .try_into()
-                        .expect("cannot parse to fee"),
-                    slot: slot.try_into().expect("cannot parse to slot"),
-                };
-
-                let msg = DBWorkerMessage {
-                    message: DBMessage::Transaction(tx),
-                };
-
-                info!("sending message to worker {:?}", msg);
-
-                if let Some(client) = self.client.as_ref() {
-                    let res = client.send(msg);
-                    if let Err(e) = res {
-                        return Err(GeyserPluginError::Custom(Box::new(e)));
-                    }
-                } else {
-                    return Err(GeyserPluginError::Custom(Box::new(
-                        GeyserPluginPostgresError::GenericError {
-                            msg: "client not found".to_string(),
-                        },
-                    )));
-                }
-
-                Ok(())
+        let ReplicaTransactionInfoVersions::V0_0_2(solana_transaction) = transaction else {
+            return Err(GeyserPluginError::TransactionUpdateError {
+                msg: "Unsupported transaction version".to_string(),
+            });
+        };
+        let transaction_message: MessageTransaction = (solana_transaction, slot).into();
+        if let Some(inner) = self.inner.as_ref() {
+            if let Err(e) = inner.transaction_updates_tx.send(transaction_message) {
+                error!(target: "geyser", "Error sending transaction update: {:?}", e);
             }
-            _ => Err(GeyserPluginError::Custom(Box::new(
-                GeyserPluginPostgresError::VersionNotSupported,
-            ))),
         }
+        Ok(())
     }
 
     fn notify_block_metadata(
         &self,
         _blockinfo: ReplicaBlockInfoVersions,
-    ) -> solana_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
+    ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         Ok(())
     }
 
     fn account_data_notifications_enabled(&self) -> bool {
-        false
+        true
     }
 
     fn transaction_notifications_enabled(&self) -> bool {

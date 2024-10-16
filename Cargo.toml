@@ -1,5 +1,5 @@
 [package]
-name = "geyser-test-plugin"
+name = "geyser-websocket-plugin"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,11 +7,17 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-solana-geyser-plugin-interface = "1.18.18"
-solana-logger = { version = "2.0.2" }
-log = "0.4.14"
-diesel = { version = "2.2.0", features = ["postgres", "r2d2", "chrono"] }
+#solana dependencies
+agave-geyser-plugin-interface = "=2.0.8"
+solana-logger = "=2.0.8"
+solana-sdk = "=2.0.8"
+solana-transaction-status = "=2.0.8"
+solana-account-decoder = "2.0.8"
+solana-rpc-client-api = "2.0.8"
+
 serde = { version = "1.0.204", features = ["derive"] }
 thiserror = "1.0.63"
-diesel_migrations = "2.2.0"
-crossbeam-channel = "0.5.13"
+tokio = { version = "1.40.0", features = ["full"] }
+jsonrpsee = {version = "0.20.4", features = ["full", "macros"]}
+tracing = "0.1.40"
+anyhow = "1.0.89"
