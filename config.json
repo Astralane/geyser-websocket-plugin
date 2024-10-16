@@ -2,5 +2,8 @@
   "libpath": "target/release/libgeyser_test_plugin.so",
   "log": {
     "level": "debug"
+  },
+  "websocket": {
+    "address": "127.0.0.1:10050"
   }
 }

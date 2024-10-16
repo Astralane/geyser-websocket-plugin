@@ -1,3 +1,4 @@
+use crate::config::Config;
 use crate::rpc_pubsub::GeyserPubSubServer;
 use crate::server::GeyserPubSubImpl;
 use crate::types::account::MessageAccount;
@@ -69,6 +70,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         solana_logger::setup_with_default("info");
         info!(target: "geyser", "on_load: config_file: {:?}", config_file);
 
+        let config = Config::load_from_file(config_file)?;
         //run socket server in a tokio runtime
         let (slot_updates_tx, slot_updates_rx) = tokio::sync::broadcast::channel(16);
         let (transaction_updates_tx, transaction_updates_rx) = tokio::sync::broadcast::channel(16);
@@ -88,11 +90,11 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
             transaction_updates_rx,
             account_updates_rx,
         );
-
+        let addr = config.websocket.address;
         let ws_server_handle = runtime.block_on(async move {
             let hdl = ServerBuilder::default()
                 .ws_only()
-                .build("127.0.0.1:10050")
+                .build(addr)
                 .await
                 .unwrap()
                 .start(pubsub.into_rpc());
