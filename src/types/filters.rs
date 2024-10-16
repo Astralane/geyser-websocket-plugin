@@ -1,6 +1,6 @@
-use crate::types::account::{MessageAccount};
+use crate::types::account::MessageAccount;
 use crate::types::slot_info::MessageSlotInfo;
-use crate::types::transaction::{MessageTransaction};
+use crate::types::transaction::MessageTransaction;
 use serde::{Deserialize, Serialize};
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::pubkey::Pubkey;

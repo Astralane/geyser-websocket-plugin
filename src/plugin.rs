@@ -8,6 +8,7 @@ use agave_geyser_plugin_interface::geyser_plugin_interface::{
     ReplicaTransactionInfoVersions, SlotStatus,
 };
 use jsonrpsee::server::{ServerBuilder, ServerHandle};
+use serde::Serialize;
 use solana_sdk::commitment_config::CommitmentConfig;
 use std::fmt::Debug;
 use std::sync::atomic::AtomicBool;
@@ -37,13 +38,16 @@ pub struct GeyserPluginWebsocketInner {
     pub runtime: Runtime,
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize)]
 pub enum GeyserPluginWebsocketError {
     #[error("Generic Error message: ({msg})")]
     GenericError { msg: String },
 
     #[error("version  not supported anymore")]
     VersionNotSupported,
+
+    #[error("internal server error")]
+    Lagged(u64),
 }
 
 impl From<GeyserPluginWebsocketError> for GeyserPluginError {

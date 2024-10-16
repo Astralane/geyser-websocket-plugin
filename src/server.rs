@@ -1,5 +1,6 @@
+use crate::plugin::GeyserPluginWebsocketError;
 use crate::rpc_pubsub::GeyserPubSubServer;
-use crate::types::account::{MessageAccount};
+use crate::types::account::MessageAccount;
 use crate::types::filters::{
     FilterAccounts, FilterSlots, FilterTransactions, RpcTransactionsConfig,
 };
@@ -85,6 +86,13 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                         }
                         RecvError::Lagged(skipped) => {
                             warn!("slot subscription Lagged skipped {}", skipped);
+                            //send lagged error message
+                            let resp = GeyserPluginWebsocketError::Lagged(skipped);
+                            let resp = jsonrpsee::SubscriptionMessage::from_json(&resp).unwrap();
+                            let sink_ = sink.clone();
+                            tokio::spawn(async move {
+                                let _ = sink_.send(resp).await;
+                            });
                             continue;
                         }
                     },
