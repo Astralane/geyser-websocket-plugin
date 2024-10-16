@@ -1,6 +1,6 @@
 #![warn(unused_crate_dependencies)]
 mod entrypoint;
 mod plugin;
-mod rpc_pubsub;
-mod server;
+pub mod rpc_pubsub;
+pub mod server;
 pub mod types;

@@ -1,11 +1,14 @@
 use crate::rpc_pubsub::GeyserPubSubServer;
-use crate::types::account::{MessageAccount, MessageAccountInfo};
-use crate::types::filters::{RpcAccountInfoConfig, RpcTransactionsConfig};
+use crate::types::account::{MessageAccount};
+use crate::types::filters::{
+    FilterAccounts, FilterSlots, FilterTransactions, RpcTransactionsConfig,
+};
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
 use jsonrpsee::core::{async_trait, SubscriptionResult};
 use jsonrpsee::tracing::error;
 use jsonrpsee::PendingSubscriptionSink;
+use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -47,6 +50,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         let sink = pending.accept().await?;
         let mut slot_stream = self.slot_stream.resubscribe();
         let stop = self.shutdown.clone();
+        let filter = FilterSlots::new(config);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested
@@ -60,6 +64,9 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                             return;
                         }
                         //add filters here.
+                        if !filter.allows(&slot) {
+                            continue;
+                        }
                         let resp = jsonrpsee::SubscriptionMessage::from_json(&slot).unwrap();
                         match sink.send(resp).await {
                             Ok(_) => {
@@ -95,6 +102,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         let sink = pending.accept().await?;
         let mut transaction_stream = self.transaction_stream.resubscribe();
         let stop = self.shutdown.clone();
+        let filter = FilterTransactions::new(config.filter);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested
@@ -107,19 +115,30 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                 let transaction_response = transaction_stream.recv().await;
                 match transaction_response {
                     Ok(transaction) => {
-                        if sink.is_closed() {
-                            return;
+                        if !filter.allows(&transaction) {
+                            continue;
                         }
-                        //add filters here.
-                        let resp = jsonrpsee::SubscriptionMessage::from_json(&transaction).unwrap();
-                        match sink.send(resp).await {
-                            Ok(_) => {
-                                continue;
+
+                        if let Ok(notification) = transaction.to_notification(
+                            config.options.encoding,
+                            config.options.max_supported_transaction_version,
+                            config.options.show_rewards.unwrap_or_default(),
+                        ) {
+                            //This might be a bottleneck.
+                            let resp =
+                                jsonrpsee::SubscriptionMessage::from_json(&notification).unwrap();
+                            match sink.send(resp).await {
+                                Ok(_) => {
+                                    continue;
+                                }
+                                Err(e) => {
+                                    error!("Error sending transaction response: {:?}", e);
+                                    return;
+                                }
                             }
-                            Err(e) => {
-                                error!("Error sending transaction response: {:?}", e);
-                                return;
-                            }
+                        } else {
+                            error!("Error encoding transaction");
+                            continue;
                         }
                     }
                     Err(e) => match e {
@@ -141,12 +160,13 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
     async fn account_update_subscribe(
         &self,
         pending: PendingSubscriptionSink,
-        pub_key: Pubkey,
-        config: RpcAccountInfoConfig,
+        pubkey: Pubkey,
+        config: Option<RpcAccountInfoConfig>,
     ) -> SubscriptionResult {
         let sink = pending.accept().await?;
         let mut account_stream = self.account_stream.resubscribe();
         let stop = self.shutdown.clone();
+        let filter = FilterAccounts::new(pubkey);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested
@@ -158,12 +178,18 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                 }
                 let account_response = account_stream.recv().await;
                 match account_response {
-                    Ok(account) => {
+                    Ok(message) => {
                         if sink.is_closed() {
                             return;
                         }
                         //add filters here.
-                        let resp = jsonrpsee::SubscriptionMessage::from_json(&account).unwrap();
+                        if !filter.allows(&message) {
+                            continue;
+                        }
+                        let resp = jsonrpsee::SubscriptionMessage::from_json(
+                            &message.to_notification(config.as_ref()),
+                        )
+                        .unwrap();
                         match sink.send(resp).await {
                             Ok(_) => {
                                 continue;

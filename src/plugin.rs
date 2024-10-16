@@ -46,6 +46,12 @@ pub enum GeyserPluginWebsocketError {
     VersionNotSupported,
 }
 
+impl From<GeyserPluginWebsocketError> for GeyserPluginError {
+    fn from(e: GeyserPluginWebsocketError) -> Self {
+        GeyserPluginError::Custom(Box::new(e))
+    }
+}
+
 impl GeyserPlugin for GeyserWebsocketPlugin {
     fn name(&self) -> &'static str {
         "GeyserWebsocketPlugin"
@@ -54,7 +60,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
     fn on_load(
         &mut self,
         config_file: &str,
-        is_reload: bool,
+        _is_reload: bool,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         solana_logger::setup_with_default("info");
         info!(target: "geyser", "on_load: config_file: {:?}", config_file);
@@ -65,7 +71,12 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         let (account_updates_tx, account_updates_rx) = tokio::sync::broadcast::channel(16);
         let shutdown = Arc::new(AtomicBool::new(false));
 
-        let runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().map_err(|e| {
+            error!(target: "geyser", "Error creating runtime: {:?}", e);
+            GeyserPluginWebsocketError::GenericError {
+                msg: "Error creating runtime".to_string(),
+            }
+        })?;
 
         let pubsub = GeyserPubSubImpl::new(
             shutdown.clone(),
@@ -77,7 +88,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         let ws_server_handle = runtime.block_on(async move {
             let hdl = ServerBuilder::default()
                 .ws_only()
-                .build("127.0.0.1:8999")
+                .build("127.0.0.1:10050")
                 .await
                 .unwrap()
                 .start(pubsub.into_rpc());
@@ -176,7 +187,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
                 msg: "Unsupported transaction version".to_string(),
             });
         };
-        let transaction_message: MessageTransaction = solana_transaction.into();
+        let transaction_message: MessageTransaction = (solana_transaction, slot).into();
         if let Some(inner) = self.inner.as_ref() {
             if let Err(e) = inner.transaction_updates_tx.send(transaction_message) {
                 error!(target: "geyser", "Error sending transaction update: {:?}", e);

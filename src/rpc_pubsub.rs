@@ -1,8 +1,7 @@
-use crate::types::filters::{
-    RpcAccountInfoConfig, RpcTransactionsConfig, TransactionSubscribeOptions,
-};
+use crate::types::filters::RpcTransactionsConfig;
 use jsonrpsee::core::SubscriptionResult;
 use jsonrpsee::proc_macros::rpc;
+use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 
@@ -22,6 +21,6 @@ pub trait GeyserPubSub {
     async fn account_update_subscribe(
         &self,
         pubkey: Pubkey,
-        config: RpcAccountInfoConfig,
+        config: Option<RpcAccountInfoConfig>,
     ) -> SubscriptionResult;
 }
