@@ -6,13 +6,13 @@ use crate::types::transaction::MessageTransaction;
 use jsonrpsee::core::{async_trait, SubscriptionResult};
 use jsonrpsee::tracing::error;
 use jsonrpsee::PendingSubscriptionSink;
-use log::{debug, warn};
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
+use tracing::{debug, warn};
 
 pub struct GeyserPubSubImpl {
     pub shutdown: Arc<AtomicBool>,
@@ -76,8 +76,8 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                             debug!("slot subscription Closed");
                             return;
                         }
-                        RecvError::Lagged(e) => {
-                            warn!("slot subscription Lagged");
+                        RecvError::Lagged(skipped) => {
+                            warn!("slot subscription Lagged skipped {}", skipped);
                             continue;
                         }
                     },
@@ -92,7 +92,50 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         pending: PendingSubscriptionSink,
         config: RpcTransactionsConfig,
     ) -> SubscriptionResult {
-        todo!()
+        let sink = pending.accept().await?;
+        let mut transaction_stream = self.transaction_stream.resubscribe();
+        let stop = self.shutdown.clone();
+        tokio::spawn(async move {
+            loop {
+                //check if shutdown is requested
+                if stop.load(Ordering::Relaxed) {
+                    return;
+                }
+                if sink.is_closed() {
+                    return;
+                }
+                let transaction_response = transaction_stream.recv().await;
+                match transaction_response {
+                    Ok(transaction) => {
+                        if sink.is_closed() {
+                            return;
+                        }
+                        //add filters here.
+                        let resp = jsonrpsee::SubscriptionMessage::from_json(&transaction).unwrap();
+                        match sink.send(resp).await {
+                            Ok(_) => {
+                                continue;
+                            }
+                            Err(e) => {
+                                error!("Error sending transaction response: {:?}", e);
+                                return;
+                            }
+                        }
+                    }
+                    Err(e) => match e {
+                        RecvError::Closed => {
+                            debug!("transaction subscription Closed");
+                            return;
+                        }
+                        RecvError::Lagged(skipped) => {
+                            warn!("slot subscription Lagged skipped {}", skipped);
+                            continue;
+                        }
+                    },
+                }
+            }
+        });
+        Ok(())
     }
 
     async fn account_update_subscribe(
@@ -101,6 +144,49 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         pub_key: Pubkey,
         config: RpcAccountInfoConfig,
     ) -> SubscriptionResult {
-        todo!()
+        let sink = pending.accept().await?;
+        let mut account_stream = self.account_stream.resubscribe();
+        let stop = self.shutdown.clone();
+        tokio::spawn(async move {
+            loop {
+                //check if shutdown is requested
+                if stop.load(Ordering::Relaxed) {
+                    return;
+                }
+                if sink.is_closed() {
+                    return;
+                }
+                let account_response = account_stream.recv().await;
+                match account_response {
+                    Ok(account) => {
+                        if sink.is_closed() {
+                            return;
+                        }
+                        //add filters here.
+                        let resp = jsonrpsee::SubscriptionMessage::from_json(&account).unwrap();
+                        match sink.send(resp).await {
+                            Ok(_) => {
+                                continue;
+                            }
+                            Err(e) => {
+                                error!("Error sending account response: {:?}", e);
+                                return;
+                            }
+                        }
+                    }
+                    Err(e) => match e {
+                        RecvError::Closed => {
+                            debug!("account subscription Closed");
+                            return;
+                        }
+                        RecvError::Lagged(skipped) => {
+                            warn!("slot subscription Lagged skipped {}", skipped);
+                            continue;
+                        }
+                    },
+                }
+            }
+        });
+        Ok(())
     }
 }

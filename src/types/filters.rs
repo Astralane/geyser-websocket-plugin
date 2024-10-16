@@ -84,3 +84,7 @@ pub struct RpcAccountInfoConfig {
     pub encoding: Option<UiEncoding>, // supported values: base58, base64, base64+zstd, jsonParsed
     pub commitment: Option<CommitmentConfig>, // supported values: finalized, confirmed, processed - defaults to finalized
 }
+
+pub trait Filter {
+    fn filter(&self) -> bool;
+}

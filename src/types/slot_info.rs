@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
+use solana_sdk::commitment_config::CommitmentLevel;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSlotInfo {

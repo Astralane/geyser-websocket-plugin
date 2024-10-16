@@ -1,7 +1,6 @@
 use crate::rpc_pubsub::GeyserPubSubServer;
 use crate::server::GeyserPubSubImpl;
-use crate::types::account::{MessageAccount, MessageAccountInfo};
-use crate::types::channel_message::ChannelMessage;
+use crate::types::account::MessageAccount;
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
 use agave_geyser_plugin_interface::geyser_plugin_interface::{
@@ -9,16 +8,14 @@ use agave_geyser_plugin_interface::geyser_plugin_interface::{
     ReplicaTransactionInfoVersions, SlotStatus,
 };
 use jsonrpsee::server::{ServerBuilder, ServerHandle};
-use log::{error, info, warn};
 use solana_sdk::commitment_config::CommitmentConfig;
 use std::fmt::Debug;
-use std::ops::Deref;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
 use tokio::runtime::Runtime;
-use tokio_tungstenite::tungstenite::Message;
+use tracing::{error, info};
 
 #[derive(Debug)]
 pub struct GeyserWebsocketPlugin {
@@ -44,9 +41,6 @@ pub struct GeyserPluginWebsocketInner {
 pub enum GeyserPluginWebsocketError {
     #[error("Generic Error message: ({msg})")]
     GenericError { msg: String },
-
-    #[error("channel send error")]
-    ChannelSendError(#[from] crossbeam_channel::SendError<usize>),
 
     #[error("version  not supported anymore")]
     VersionNotSupported,

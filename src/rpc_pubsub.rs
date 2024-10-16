@@ -1,6 +1,5 @@
 use crate::types::filters::{
-    RpcAccountInfoConfig, RpcTransactionsConfig, TransactionSubscribeFilter,
-    TransactionSubscribeOptions,
+    RpcAccountInfoConfig, RpcTransactionsConfig, TransactionSubscribeOptions,
 };
 use jsonrpsee::core::SubscriptionResult;
 use jsonrpsee::proc_macros::rpc;

@@ -1,15 +1,16 @@
 use agave_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfoV3;
+use serde::{Deserialize, Serialize};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageAccount {
     pub account: MessageAccountInfo,
     pub slot: u64,
     pub is_startup: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageAccountInfo {
     pub pubkey: Pubkey,
     pub lamports: u64,
