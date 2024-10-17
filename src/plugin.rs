@@ -210,10 +210,10 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
     }
 
     fn account_data_notifications_enabled(&self) -> bool {
-        true
+        false
     }
 
     fn transaction_notifications_enabled(&self) -> bool {
-        true
+        false
     }
 }
