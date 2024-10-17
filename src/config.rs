@@ -38,6 +38,7 @@ impl Default for ConfigWs {
 #[derive(Debug, Clone, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    pub libpath: String,
     pub websocket: ConfigWs,
     pub log: ConfigLog,
 }
