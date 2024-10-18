@@ -2,7 +2,8 @@ use crate::plugin::GeyserPluginWebsocketError;
 use crate::rpc_pubsub::GeyserPubSubServer;
 use crate::types::account::MessageAccount;
 use crate::types::filters::{
-    FilterAccounts, FilterSlots, FilterTransactions, RpcTransactionsConfig,
+    FilterAccounts, FilterSlots, FilterTransactions,
+    TransactionSubscribeFilter, TransactionSubscribeOptions,
 };
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
@@ -105,12 +106,13 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
     async fn transaction_subscribe(
         &self,
         pending: PendingSubscriptionSink,
-        config: RpcTransactionsConfig,
+        filter: TransactionSubscribeFilter,
+        options: TransactionSubscribeOptions,
     ) -> SubscriptionResult {
         let sink = pending.accept().await?;
         let mut transaction_stream = self.transaction_stream.resubscribe();
         let stop = self.shutdown.clone();
-        let filter = FilterTransactions::new(config.filter);
+        let filter = FilterTransactions::new(filter);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested
@@ -128,9 +130,9 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                         }
 
                         if let Ok(notification) = transaction.to_notification(
-                            config.options.encoding,
-                            config.options.max_supported_transaction_version,
-                            config.options.show_rewards.unwrap_or_default(),
+                            options.encoding,
+                            options.max_supported_transaction_version,
+                            options.show_rewards.unwrap_or_default(),
                         ) {
                             //This might be a bottleneck.
                             let resp =
