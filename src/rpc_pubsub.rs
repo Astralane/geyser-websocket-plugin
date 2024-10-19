@@ -24,7 +24,7 @@ pub trait GeyserPubSub {
     )]
     async fn account_subscribe(
         &self,
-        pubkey: Pubkey,
+        pubkey: &Pubkey,
         config: Option<RpcAccountInfoConfig>,
     ) -> SubscriptionResult;
 }
