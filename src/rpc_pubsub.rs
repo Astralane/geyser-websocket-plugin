@@ -3,7 +3,6 @@ use jsonrpsee::core::SubscriptionResult;
 use jsonrpsee::proc_macros::rpc;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
-use solana_sdk::pubkey::Pubkey;
 
 #[rpc(server)]
 pub trait GeyserPubSub {
@@ -24,7 +23,7 @@ pub trait GeyserPubSub {
     )]
     async fn account_subscribe(
         &self,
-        pubkey: &Pubkey,
+        pubkey_str: String,
         config: Option<RpcAccountInfoConfig>,
     ) -> SubscriptionResult;
 }
