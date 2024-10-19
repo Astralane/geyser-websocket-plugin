@@ -1,4 +1,4 @@
-use crate::types::filters::RpcTransactionsConfig;
+use crate::types::filters::{TransactionSubscribeFilter, TransactionSubscribeOptions};
 use jsonrpsee::core::SubscriptionResult;
 use jsonrpsee::proc_macros::rpc;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
@@ -13,12 +13,16 @@ pub trait GeyserPubSub {
     #[subscription(
         name = "transactionSubscribe", unsubscribe = "transactionUnsubscribe", item = String
     )]
-    async fn transaction_subscribe(&self, config: RpcTransactionsConfig) -> SubscriptionResult;
+    async fn transaction_subscribe(
+        &self,
+        filter: TransactionSubscribeFilter,
+        options: TransactionSubscribeOptions,
+    ) -> SubscriptionResult;
 
     #[subscription(
-        name = "accountUpdateSubscribe", unsubscribe = "accountUpdateUnsubscribe", item = String
+        name = "accountSubscribe", unsubscribe = "accountUnsubscribe", item = String
     )]
-    async fn account_update_subscribe(
+    async fn account_subscribe(
         &self,
         pubkey: Pubkey,
         config: Option<RpcAccountInfoConfig>,
