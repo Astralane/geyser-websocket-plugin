@@ -2,8 +2,8 @@ use crate::plugin::GeyserPluginWebsocketError;
 use crate::rpc_pubsub::GeyserPubSubServer;
 use crate::types::account::MessageAccount;
 use crate::types::filters::{
-    FilterAccounts, FilterSlots, FilterTransactions,
-    TransactionSubscribeFilter, TransactionSubscribeOptions,
+    FilterAccounts, FilterSlots, FilterTransactions, TransactionSubscribeFilter,
+    TransactionSubscribeOptions,
 };
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
@@ -167,7 +167,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         Ok(())
     }
 
-    async fn account_update_subscribe(
+    async fn account_subscribe(
         &self,
         pending: PendingSubscriptionSink,
         pubkey: Pubkey,

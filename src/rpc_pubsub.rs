@@ -20,9 +20,9 @@ pub trait GeyserPubSub {
     ) -> SubscriptionResult;
 
     #[subscription(
-        name = "accountUpdateSubscribe", unsubscribe = "accountUpdateUnsubscribe", item = String
+        name = "accountSubscribe", unsubscribe = "accountUnsubscribe", item = String
     )]
-    async fn account_update_subscribe(
+    async fn account_subscribe(
         &self,
         pubkey: Pubkey,
         config: Option<RpcAccountInfoConfig>,
