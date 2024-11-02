@@ -13,6 +13,7 @@ use jsonrpsee::PendingSubscriptionSink;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::CommitmentConfig;
 use solana_sdk::pubkey::Pubkey;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -170,12 +171,13 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
     async fn account_subscribe(
         &self,
         pending: PendingSubscriptionSink,
-        pubkey: Pubkey,
+        pubkey_str: String,
         config: Option<RpcAccountInfoConfig>,
     ) -> SubscriptionResult {
         let sink = pending.accept().await?;
         let mut account_stream = self.account_stream.resubscribe();
         let stop = self.shutdown.clone();
+        let pubkey = Pubkey::from_str(&pubkey_str)?;
         let filter = FilterAccounts::new(pubkey);
         tokio::spawn(async move {
             loop {
