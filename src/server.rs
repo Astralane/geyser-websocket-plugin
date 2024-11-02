@@ -178,7 +178,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         let mut account_stream = self.account_stream.resubscribe();
         let stop = self.shutdown.clone();
         let pubkey = Pubkey::from_str(&pubkey_str)?;
-        let filter = FilterAccounts::new(pubkey.clone());
+        let filter = FilterAccounts::new(pubkey);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested

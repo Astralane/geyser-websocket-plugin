@@ -67,10 +67,10 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         config_file: &str,
         _is_reload: bool,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        solana_logger::setup_with_default("info");
         info!(target: "geyser", "on_load: config_file: {:?}", config_file);
 
         let config = Config::load_from_file(config_file)?;
+        solana_logger::setup_with_default(&config.log.level);
         //run socket server in a tokio runtime
         let (slot_updates_tx, slot_updates_rx) = tokio::sync::broadcast::channel(16);
         let (transaction_updates_tx, transaction_updates_rx) = tokio::sync::broadcast::channel(16);
