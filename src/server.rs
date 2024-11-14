@@ -37,7 +37,7 @@ impl GeyserPubSubImpl {
         let (transaction_stream_sender, transaction_stream) = broadcast::channel(100);
         let (account_stream_sender, account_stream) = broadcast::channel(100);
         thread::spawn(move || {
-            spawn_broadcast_with_commitment_cache(
+            run_broadcast_with_commitment_cache_loop(
                 tx,
                 slot_stream_sender,
                 transaction_stream_sender,
@@ -55,7 +55,7 @@ impl GeyserPubSubImpl {
 
 // keep a rolling cache of all recently received tx and account stream messages
 // rebroadcast them on getting commitment updates for slot
-fn spawn_broadcast_with_commitment_cache(
+fn run_broadcast_with_commitment_cache_loop(
     mut rx: tokio::sync::mpsc::Receiver<ChannelMessage>,
     slot_stream: broadcast::Sender<MessageSlotInfo>,
     transaction_stream: broadcast::Sender<(Box<MessageTransaction>, CommitmentLevel)>,
