@@ -15,6 +15,7 @@ use jsonrpsee::PendingSubscriptionSink;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::pubkey::Pubkey;
+use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -57,7 +58,8 @@ fn spawn_broadcast_with_commitment_cache(
     transaction_stream: broadcast::Sender<(Box<MessageTransaction>, CommitmentLevel)>,
     account_stream: broadcast::Sender<(Box<MessageAccount>, CommitmentLevel)>,
 ) {
-    let tx_cache = DashMap::<u64, Vec<Box<MessageTransaction>>>::new();
+    let mut slot_record = HashSet::new();
+    let transactions_cache = DashMap::<u64, Vec<Box<MessageTransaction>>>::new();
     let accounts_update_cache = DashMap::<u64, Vec<Box<MessageAccount>>>::new();
     loop {
         let message = rx.blocking_recv();
@@ -65,11 +67,29 @@ fn spawn_broadcast_with_commitment_cache(
             match message {
                 ChannelMessage::Slot(slot_msg) => {
                     let (transactions, account_updates) = match slot_msg.commitment {
-                        CommitmentLevel::Processed => (Vec::new(), Vec::new()),
+                        CommitmentLevel::Processed => {
+                            slot_record.insert(slot_msg.slot);
+
+                            // remove old unconfirmed slot data,
+                            // keep only the last 100 slots in memory
+                            let slots_to_remove = slot_record
+                                .iter()
+                                .filter(|&&s| s < slot_msg.slot - 100)
+                                .cloned()
+                                .collect::<Vec<_>>();
+
+                            for slot in slots_to_remove {
+                                transactions_cache.remove(&slot);
+                                accounts_update_cache.remove(&slot);
+                                slot_record.remove(&slot);
+                            }
+
+                            (Vec::new(), Vec::new())
+                        }
                         CommitmentLevel::Confirmed => {
                             let mut transactions = Vec::new();
                             let mut account_updates = Vec::new();
-                            if let Some(messages) = tx_cache.get(&slot_msg.slot) {
+                            if let Some(messages) = transactions_cache.get(&slot_msg.slot) {
                                 transactions = messages.clone();
                             }
                             if let Some(messages) = accounts_update_cache.get(&slot_msg.slot) {
@@ -80,14 +100,15 @@ fn spawn_broadcast_with_commitment_cache(
                         CommitmentLevel::Finalized => {
                             let mut transactions = Vec::new();
                             let mut account_updates = Vec::new();
-                            if let Some((_, messages)) = tx_cache.remove(&slot_msg.slot) {
-                                transactions = messages.clone();
+                            if let Some((_, messages)) = transactions_cache.remove(&slot_msg.slot) {
+                                transactions = messages;
                             }
                             if let Some((_, messages)) =
                                 accounts_update_cache.remove(&slot_msg.slot)
                             {
-                                account_updates = messages.clone();
+                                account_updates = messages;
                             }
+                            slot_record.remove(&slot_msg.slot);
                             (transactions, account_updates)
                         }
                         _ => (Vec::new(), Vec::new()),
@@ -120,7 +141,7 @@ fn spawn_broadcast_with_commitment_cache(
                 }
                 ChannelMessage::Transaction(message_transaction) => {
                     //add to cache
-                    tx_cache
+                    transactions_cache
                         .entry(message_transaction.slot)
                         .and_modify(|txs| txs.push(message_transaction.clone()))
                         .or_insert(vec![message_transaction.clone()]);
