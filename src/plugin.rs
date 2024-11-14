@@ -83,19 +83,18 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
 
         let pubsub = GeyserPubSubImpl::new(shutdown.clone(), reciever);
         let addr = config.websocket.address;
-        // let socket = Socket::new(Domain::for_address(addr), Type::STREAM, None)?;
-        // socket.set_nonblocking(true)?;
-        // socket.reuse_address()?;
-        // socket.set_nodelay(true)?;
-        // let address = addr.into();
-        // socket.bind(&address)?;
-        // socket.listen(4096)?;
+        let socket = Socket::new(Domain::for_address(addr), Type::STREAM, None)?;
+        socket.set_nonblocking(true)?;
+        socket.reuse_address()?;
+        socket.set_nodelay(true)?;
+        let address = addr.into();
+        socket.bind(&address)?;
+        socket.listen(4096)?;
 
         let ws_server_handle = runtime.block_on(async move {
             let hdl = ServerBuilder::default()
                 .ws_only()
-                .build(addr)
-                .await
+                .build_from_tcp(socket)
                 .unwrap()
                 .start(pubsub.into_rpc());
             Ok::<_, GeyserPluginError>(hdl)

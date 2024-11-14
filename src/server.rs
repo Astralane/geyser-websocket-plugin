@@ -19,6 +19,7 @@ use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::thread;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
 use tracing::{debug, warn};
@@ -35,12 +36,14 @@ impl GeyserPubSubImpl {
         let (slot_stream_sender, slot_stream) = broadcast::channel(100);
         let (transaction_stream_sender, transaction_stream) = broadcast::channel(100);
         let (account_stream_sender, account_stream) = broadcast::channel(100);
-        spawn_broadcast_with_commitment_cache(
-            tx,
-            slot_stream_sender,
-            transaction_stream_sender,
-            account_stream_sender,
-        );
+        thread::spawn(move || {
+            spawn_broadcast_with_commitment_cache(
+                tx,
+                slot_stream_sender,
+                transaction_stream_sender,
+                account_stream_sender,
+            )
+        });
         Self {
             shutdown,
             slot_stream,
