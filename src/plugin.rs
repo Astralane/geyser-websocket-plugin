@@ -95,6 +95,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
             let hdl = ServerBuilder::default()
                 .ws_only()
                 .build(addr)
+                .await
                 .unwrap()
                 .start(pubsub.into_rpc());
             Ok::<_, GeyserPluginError>(hdl)
