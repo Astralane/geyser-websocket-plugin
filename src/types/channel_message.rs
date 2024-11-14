@@ -1,3 +1,4 @@
+use crate::types::account::MessageAccount;
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
 
@@ -5,4 +6,5 @@ use crate::types::transaction::MessageTransaction;
 pub enum ChannelMessage {
     Slot(MessageSlotInfo),
     Transaction(Box<MessageTransaction>),
+    AccountUpdate(Box<MessageAccount>),
 }
