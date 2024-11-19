@@ -6,8 +6,8 @@ use solana_sdk::commitment_config::CommitmentConfig;
 
 #[rpc(server)]
 pub trait GeyserPubSub {
-    #[method(name = "getVersion")]
-    async fn get_version(&self) -> String;
+    #[subscription(name = "getVersion", unsubscribe = "getVersionUnsubscribe", item = String)]
+    async fn get_version(&self) -> SubscriptionResult;
 
     #[subscription(name = "slotSubscribe", unsubscribe = "slotUnsubscribe", item = String)]
     async fn slot_subscribe(&self, config: Option<CommitmentConfig>) -> SubscriptionResult;

@@ -12,6 +12,7 @@ use dashmap::DashMap;
 use jsonrpsee::core::{async_trait, SubscriptionResult};
 use jsonrpsee::tracing::error;
 use jsonrpsee::PendingSubscriptionSink;
+use serde_json::json;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::pubkey::Pubkey;
@@ -176,8 +177,12 @@ fn run_broadcast_with_commitment_cache_loop(
 
 #[async_trait]
 impl GeyserPubSubServer for GeyserPubSubImpl {
-    async fn get_version(&self) -> String {
-        "Ok(1)".to_string()
+    async fn get_version(&self, pending: PendingSubscriptionSink) -> SubscriptionResult {
+        let sink = pending.accept().await?;
+        let resp_json = json!({"version": "1.0.0"});
+        let resp = jsonrpsee::SubscriptionMessage::from_json(&resp_json).unwrap();
+        sink.send(resp).await?;
+        Ok(())
     }
 
     async fn slot_subscribe(
