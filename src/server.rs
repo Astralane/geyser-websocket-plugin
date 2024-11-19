@@ -176,6 +176,10 @@ fn run_broadcast_with_commitment_cache_loop(
 
 #[async_trait]
 impl GeyserPubSubServer for GeyserPubSubImpl {
+    async fn get_version(&self) -> String {
+        "Ok(1)".to_string()
+    }
+
     async fn slot_subscribe(
         &self,
         pending: PendingSubscriptionSink,

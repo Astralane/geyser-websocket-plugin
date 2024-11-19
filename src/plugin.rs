@@ -93,7 +93,6 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
 
         let ws_server_handle = runtime.block_on(async move {
             let hdl = ServerBuilder::default()
-                .ws_only()
                 .build_from_tcp(socket)
                 .unwrap()
                 .start(pubsub.into_rpc());
