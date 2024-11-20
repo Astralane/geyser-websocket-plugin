@@ -8,12 +8,12 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 #solana dependencies
-agave-geyser-plugin-interface = "=2.0.8"
-solana-logger = "=2.0.8"
-solana-sdk = "=2.0.8"
-solana-transaction-status = "=2.0.8"
-solana-account-decoder = "2.0.8"
-solana-rpc-client-api = "2.0.8"
+agave-geyser-plugin-interface = "=2.0.16"
+solana-logger = "=2.0.16"
+solana-sdk = "=2.0.16"
+solana-transaction-status = "=2.0.16"
+solana-account-decoder = "=2.0.16"
+solana-rpc-client-api = "=2.0.16"
 
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.128"

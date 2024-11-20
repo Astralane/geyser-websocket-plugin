@@ -115,7 +115,6 @@ fn run_broadcast_with_commitment_cache_loop(
                             slot_record.remove(&slot_msg.slot);
                             (transactions, account_updates)
                         }
-                        _ => (Vec::new(), Vec::new()),
                     };
                     if !transactions.is_empty() {
                         for transaction in transactions {
