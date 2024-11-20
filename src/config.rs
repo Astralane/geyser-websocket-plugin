@@ -40,7 +40,7 @@ impl Default for ConfigWs {
 pub struct Config {
     pub libpath: String,
     pub websocket: ConfigWs,
-    pub prometheus_address: SocketAddr,
+    pub prometheus_address: Option<SocketAddr>,
     pub log: ConfigLog,
 }
 

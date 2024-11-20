@@ -71,12 +71,15 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
 
         let config = Config::load_from_file(config_file)?;
         solana_logger::setup_with_default(&config.log.level);
-        spawn_metrics_client(config.prometheus_address).map_err(|e| {
-            error!(target: "geyser", "Error running prometheus serve: {:?}", e);
-            GeyserPluginWebsocketError::GenericError {
-                msg: "Error running prometheus server".to_string(),
-            }
-        })?;
+
+        if let Some(prometheus_address) = config.prometheus_address {
+            spawn_metrics_client(prometheus_address).map_err(|e| {
+                error!(target: "geyser", "Error running prometheus serve: {:?}", e);
+                GeyserPluginWebsocketError::GenericError {
+                    msg: "Error running prometheus server".to_string(),
+                }
+            })?;
+        }
         //run socket server in a tokio runtime
         let (sender, reciever) = tokio::sync::mpsc::channel(64);
         let shutdown = Arc::new(AtomicBool::new(false));
