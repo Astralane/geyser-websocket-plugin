@@ -12,6 +12,7 @@ use dashmap::DashMap;
 use jsonrpsee::core::{async_trait, SubscriptionResult};
 use jsonrpsee::tracing::error;
 use jsonrpsee::PendingSubscriptionSink;
+use metrics::{counter, gauge, histogram};
 use serde_json::json;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
@@ -23,6 +24,7 @@ use std::sync::Arc;
 use std::thread;
 use tokio::sync::broadcast;
 use tokio::sync::broadcast::error::RecvError;
+use tokio::time::Instant;
 use tracing::{debug, warn};
 
 pub struct GeyserPubSubImpl {
@@ -193,6 +195,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         let mut slot_stream = self.slot_stream.resubscribe();
         let stop = self.shutdown.clone();
         let filter = FilterSlots::new(config);
+        gauge!("total_active_subscriptions").increment(1);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested
@@ -203,6 +206,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                 match slot_response {
                     Ok(slot) => {
                         if sink.is_closed() {
+                            gauge!("total_active_subscriptions").decrement(1);
                             return;
                         }
                         //add filters here.
@@ -210,8 +214,12 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                             continue;
                         }
                         let resp = jsonrpsee::SubscriptionMessage::from_json(&slot).unwrap();
+                        let timer = Instant::now();
                         match sink.send(resp).await {
                             Ok(_) => {
+                                counter!("total_messages_sent").increment(1);
+                                histogram!("slot_send_to_client_latency")
+                                    .record(timer.elapsed().as_millis() as f64);
                                 continue;
                             }
                             Err(e) => {
@@ -223,10 +231,13 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                     Err(e) => match e {
                         RecvError::Closed => {
                             debug!("slot subscription Closed");
+                            gauge!("total_active_subscriptions").decrement(1);
                             return;
                         }
                         RecvError::Lagged(skipped) => {
                             warn!("slot subscription Lagged skipped {}", skipped);
+                            counter!("websocket_geyser_error", "receiver_lagged"=>"slot_subscribe")
+                                .increment(1);
                             //send lagged error message
                             let resp = GeyserPluginWebsocketError::Lagged(skipped);
                             let resp = jsonrpsee::SubscriptionMessage::from_json(&resp).unwrap();
@@ -253,6 +264,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
         let mut transaction_stream = self.transaction_stream.resubscribe();
         let stop = self.shutdown.clone();
         let filter = FilterTransactions::new(filter, options.commitment.map(Into::into));
+        gauge!("total_active_subscriptions").increment(1);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested
@@ -260,6 +272,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                     return;
                 }
                 if sink.is_closed() {
+                    gauge!("total_active_subscriptions").decrement(1);
                     return;
                 }
                 let transaction_response = transaction_stream.recv().await;
@@ -277,12 +290,17 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                             //This might be a bottleneck.
                             let resp =
                                 jsonrpsee::SubscriptionMessage::from_json(&notification).unwrap();
+                            let timer = Instant::now();
                             match sink.send(resp).await {
                                 Ok(_) => {
+                                    counter!("total_messages_sent").increment(1);
+                                    histogram!("transactions_send_to_client_latency")
+                                        .record(timer.elapsed().as_millis() as f64);
                                     continue;
                                 }
                                 Err(e) => {
                                     error!("Error sending transaction response: {:?}", e);
+                                    gauge!("total_active_subscriptions").decrement(1);
                                     return;
                                 }
                             }
@@ -294,10 +312,13 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                     Err(e) => match e {
                         RecvError::Closed => {
                             debug!("transaction subscription Closed");
+                            gauge!("total_active_subscriptions").decrement(1);
                             return;
                         }
                         RecvError::Lagged(skipped) => {
                             warn!("slot subscription Lagged skipped {}", skipped);
+                            counter!("websocket_geyser_error", "receiver_lagged"=>"transaction_subscribe")
+                                .increment(1);
                             continue;
                         }
                     },
@@ -322,6 +343,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
             .and_then(|c| c.commitment)
             .map(|c| c.commitment);
         let filter = FilterAccounts::new(pubkey, commitment);
+        gauge!("total_active_subscriptions").increment(1);
         tokio::spawn(async move {
             loop {
                 //check if shutdown is requested
@@ -335,6 +357,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                 match account_response {
                     Ok((message, commitment)) => {
                         if sink.is_closed() {
+                            gauge!("total_active_subscriptions").decrement(1);
                             return;
                         }
                         //add filters here.
@@ -345,11 +368,16 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                             &message.to_notification(config.as_ref()),
                         )
                         .unwrap();
+                        let timer = Instant::now();
                         match sink.send(resp).await {
                             Ok(_) => {
+                                counter!("total_messages_sent").increment(1);
+                                histogram!("transactions_send_to_client_latency")
+                                    .record(timer.elapsed().as_millis() as f64);
                                 continue;
                             }
                             Err(e) => {
+                                gauge!("total_active_subscriptions").decrement(1);
                                 error!("Error sending account response: {:?}", e);
                                 return;
                             }
@@ -358,10 +386,12 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                     Err(e) => match e {
                         RecvError::Closed => {
                             debug!("account subscription Closed");
+                            gauge!("total_active_subscriptions").decrement(1);
                             return;
                         }
                         RecvError::Lagged(skipped) => {
                             warn!("slot subscription Lagged skipped {}", skipped);
+                            counter!("websocket_geyser_error", "receiver_lagged"=>"account_subscribe").increment(1);
                             continue;
                         }
                     },

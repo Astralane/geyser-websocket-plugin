@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::metrics::spawn_metrics_client;
 use crate::rpc_pubsub::GeyserPubSubServer;
 use crate::server::GeyserPubSubImpl;
 use crate::types::channel_message::ChannelMessage;
@@ -70,6 +71,12 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
 
         let config = Config::load_from_file(config_file)?;
         solana_logger::setup_with_default(&config.log.level);
+        spawn_metrics_client(config.prometheus_address).map_err(|e| {
+            error!(target: "geyser", "Error running prometheus serve: {:?}", e);
+            GeyserPluginWebsocketError::GenericError {
+                msg: "Error running prometheus server".to_string(),
+            }
+        })?;
         //run socket server in a tokio runtime
         let (sender, reciever) = tokio::sync::mpsc::channel(64);
         let shutdown = Arc::new(AtomicBool::new(false));

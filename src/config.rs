@@ -35,11 +35,12 @@ impl Default for ConfigWs {
     }
 }
 
-#[derive(Debug, Clone, Deserialize, Default)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub libpath: String,
     pub websocket: ConfigWs,
+    pub prometheus_address: SocketAddr,
     pub log: ConfigLog,
 }
 
