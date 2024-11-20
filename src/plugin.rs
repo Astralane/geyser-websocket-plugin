@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::rpc_pubsub::GeyserPubSubServer;
 use crate::server::GeyserPubSubImpl;
-use crate::types::account::MessageAccount;
+use crate::types::channel_message::ChannelMessage;
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
 use agave_geyser_plugin_interface::geyser_plugin_interface::{
@@ -10,6 +10,7 @@ use agave_geyser_plugin_interface::geyser_plugin_interface::{
 };
 use jsonrpsee::server::{ServerBuilder, ServerHandle};
 use serde::Serialize;
+use socket2::{Domain, Socket, Type};
 use solana_sdk::commitment_config::CommitmentConfig;
 use std::fmt::Debug;
 use std::sync::atomic::AtomicBool;
@@ -32,9 +33,7 @@ impl GeyserWebsocketPlugin {
 #[derive(Debug)]
 pub struct GeyserPluginWebsocketInner {
     pub shutdown: Arc<AtomicBool>,
-    pub slot_updates_tx: tokio::sync::broadcast::Sender<MessageSlotInfo>,
-    pub transaction_updates_tx: tokio::sync::broadcast::Sender<MessageTransaction>,
-    pub account_updates_tx: tokio::sync::broadcast::Sender<MessageAccount>,
+    pub sender: tokio::sync::mpsc::Sender<ChannelMessage>,
     pub server_hdl: ServerHandle,
     pub runtime: Runtime,
 }
@@ -72,9 +71,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         let config = Config::load_from_file(config_file)?;
         solana_logger::setup_with_default(&config.log.level);
         //run socket server in a tokio runtime
-        let (slot_updates_tx, slot_updates_rx) = tokio::sync::broadcast::channel(16);
-        let (transaction_updates_tx, transaction_updates_rx) = tokio::sync::broadcast::channel(16);
-        let (account_updates_tx, account_updates_rx) = tokio::sync::broadcast::channel(16);
+        let (sender, reciever) = tokio::sync::mpsc::channel(64);
         let shutdown = Arc::new(AtomicBool::new(false));
 
         let runtime = Runtime::new().map_err(|e| {
@@ -84,18 +81,20 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
             }
         })?;
 
-        let pubsub = GeyserPubSubImpl::new(
-            shutdown.clone(),
-            slot_updates_rx,
-            transaction_updates_rx,
-            account_updates_rx,
-        );
+        let pubsub = GeyserPubSubImpl::new(shutdown.clone(), reciever);
         let addr = config.websocket.address;
+        let socket = Socket::new(Domain::for_address(addr), Type::STREAM, None)?;
+        socket.set_nonblocking(true)?;
+        socket.reuse_address()?;
+        socket.set_nodelay(true)?;
+        let address = addr.into();
+        socket.bind(&address)?;
+        socket.listen(4096)?;
+
         let ws_server_handle = runtime.block_on(async move {
             let hdl = ServerBuilder::default()
                 .ws_only()
-                .build(addr)
-                .await
+                .build_from_tcp(socket)
                 .unwrap()
                 .start(pubsub.into_rpc());
             Ok::<_, GeyserPluginError>(hdl)
@@ -103,9 +102,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
 
         let inner = GeyserPluginWebsocketInner {
             shutdown,
-            slot_updates_tx,
-            transaction_updates_tx,
-            account_updates_tx,
+            sender,
             server_hdl: ws_server_handle,
             runtime,
         };
@@ -143,9 +140,10 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
             ReplicaAccountInfoVersions::V0_0_3(info) => info,
         };
         if let Some(inner) = self.inner.as_ref() {
+            let message = (account, slot, is_startup).into();
             if let Err(e) = inner
-                .account_updates_tx
-                .send((account, slot, is_startup).into())
+                .sender
+                .blocking_send(ChannelMessage::AccountUpdate(Box::new(message)))
             {
                 error!(target: "geyser", "Error sending account update: {:?}", e);
             }
@@ -174,7 +172,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         };
         let message = MessageSlotInfo::new(slot, parent, commitment.commitment);
         if let Some(inner) = self.inner.as_ref() {
-            if let Err(e) = inner.slot_updates_tx.send(message) {
+            if let Err(e) = inner.sender.blocking_send(ChannelMessage::Slot(message)) {
                 error!(target: "geyser", "Error sending slot update: {:?}", e);
             }
         }
@@ -195,7 +193,10 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         };
         let transaction_message: MessageTransaction = (solana_transaction, slot).into();
         if let Some(inner) = self.inner.as_ref() {
-            if let Err(e) = inner.transaction_updates_tx.send(transaction_message) {
+            if let Err(e) = inner
+                .sender
+                .blocking_send(ChannelMessage::Transaction(Box::new(transaction_message)))
+            {
                 error!(target: "geyser", "Error sending transaction update: {:?}", e);
             }
         }

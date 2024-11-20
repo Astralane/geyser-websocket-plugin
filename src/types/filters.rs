@@ -35,6 +35,15 @@ pub enum TransactionCommitment {
     Finalized,
 }
 
+impl From<TransactionCommitment> for CommitmentLevel {
+    fn from(value: TransactionCommitment) -> Self {
+        match value {
+            TransactionCommitment::Processed => CommitmentLevel::Processed,
+            TransactionCommitment::Confirmed => CommitmentLevel::Confirmed,
+            TransactionCommitment::Finalized => CommitmentLevel::Finalized,
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum UiEncoding {
@@ -95,10 +104,14 @@ pub struct FilterTransactions {
     account_include: Vec<Pubkey>,
     account_exclude: Vec<Pubkey>,
     account_required: Vec<Pubkey>,
+    commitment_level: Option<CommitmentLevel>,
 }
 
 impl FilterTransactions {
-    pub fn new(filter: TransactionSubscribeFilter) -> Self {
+    pub fn new(
+        filter: TransactionSubscribeFilter,
+        commitment_level: Option<CommitmentLevel>,
+    ) -> Self {
         let mut account_include = Vec::new();
         let mut account_exclude = Vec::new();
         let mut account_required = Vec::new();
@@ -129,10 +142,21 @@ impl FilterTransactions {
             account_include,
             account_exclude,
             account_required,
+            commitment_level,
         }
     }
 
-    pub fn allows(&self, message: &MessageTransaction) -> bool {
+    pub fn allows(&self, message: &MessageTransaction, commitment_level: CommitmentLevel) -> bool {
+        if let Some(self_commitment_level) = self.commitment_level {
+            if commitment_level != self_commitment_level {
+                return false;
+            }
+        } else {
+            if commitment_level != CommitmentLevel::Processed {
+                return false;
+            }
+        }
+
         if let Some(is_vote) = self.vote {
             if is_vote != message.transaction.is_vote {
                 return false;
@@ -205,20 +229,31 @@ impl FilterTransactions {
 pub struct FilterAccounts {
     owner: Option<Pubkey>,
     accounts: Option<HashSet<Pubkey>>,
+    commitment_level: Option<CommitmentLevel>,
 }
 
 impl FilterAccounts {
-    pub fn new(account: Pubkey) -> Self {
+    pub fn new(account: Pubkey, commitment_level: Option<CommitmentLevel>) -> Self {
         //add account to set for now
         let mut accounts = HashSet::new();
         accounts.insert(account);
         Self {
             owner: None,
             accounts: Some(accounts),
+            commitment_level,
         }
     }
 
-    pub fn allows(&self, message: &MessageAccount) -> bool {
+    pub fn allows(&self, message: &MessageAccount, commitment_level: CommitmentLevel) -> bool {
+        if let Some(self_commitment_level) = self.commitment_level {
+            if commitment_level != self_commitment_level {
+                return false;
+            }
+        } else {
+            if commitment_level != CommitmentLevel::Processed {
+                return false;
+            }
+        }
         if let Some(owner) = self.owner {
             if owner != message.account.owner {
                 return false;
