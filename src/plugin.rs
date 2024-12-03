@@ -10,6 +10,7 @@ use agave_geyser_plugin_interface::geyser_plugin_interface::{
     ReplicaTransactionInfoVersions, SlotStatus,
 };
 use jsonrpsee::server::{ServerBuilder, ServerHandle};
+use log::warn;
 use serde::Serialize;
 use socket2::{Domain, Socket, Type};
 use solana_sdk::commitment_config::CommitmentConfig;
@@ -69,8 +70,8 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         let config = Config::load_from_file(config_file)?;
         solana_logger::setup_with_default(&config.log.level);
-        info!(target: "websocket_geyser", "loaded config: {:?}", config);
-        info!(target: "websocket_geyser", "is_reload: {:?}", is_reload);
+        warn!(target: "websocket_geyser", "loaded config: {:?}", config);
+        warn!(target: "websocket_geyser", "is_reload: {:?}", is_reload);
 
         if let Some(prometheus_address) = config.prometheus_address {
             info!(target: "websocket_geyser", "Starting prometheus server at: {:?}", prometheus_address);
@@ -140,7 +141,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         slot: u64,
         is_startup: bool,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        // info!(target: "geyser", update_account: account");
+        warn!(target: "websocket_geyser", "update_account: slot: {:?}", slot);
         let account = match account {
             ReplicaAccountInfoVersions::V0_0_1(_info) => {
                 unreachable!("ReplicaAccountInfoVersions::V0_0_1 is not supported")
