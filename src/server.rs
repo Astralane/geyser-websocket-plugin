@@ -72,6 +72,10 @@ fn run_broadcast_with_commitment_cache_loop(
         if let Some(message) = message {
             gauge!("websocket_geyser_transactions_cache_size").set(transactions_cache.len() as f64);
             gauge!("websocket_geyser_accounts_cache_size").set(accounts_update_cache.len() as f64);
+
+            warn!(target: "websocket_geyser", "transaction_cache_size: {}", transactions_cache.len());
+            warn!(target: "websocket_geyser", "accounts_cache_size: {}", accounts_update_cache.len());
+
             match message {
                 ChannelMessage::Slot(slot_msg) => {
                     let (transactions, account_updates) = match slot_msg.commitment {
@@ -112,7 +116,7 @@ fn run_broadcast_with_commitment_cache_loop(
                             let _ = transaction_stream
                                 .send((transaction, slot_msg.commitment))
                                 .map_err(|e| {
-                                    error!("Error sending transaction update: {:?}", e);
+                                    error!(target:"websocket_geyser","Error sending transaction update: {:?}", e);
                                     e
                                 });
                         }
@@ -123,13 +127,13 @@ fn run_broadcast_with_commitment_cache_loop(
                                 account_stream
                                     .send((account, slot_msg.commitment))
                                     .map_err(|e| {
-                                        error!("Error sending account update: {:?}", e);
+                                        error!(target:"websocket_geyser","Error sending account update: {:?}", e);
                                         e
                                     });
                         }
                     }
                     let _ = slot_stream.send(slot_msg).map_err(|e| {
-                        error!("Error sending slot update: {:?}", e);
+                        error!(target:"websocket_geyser","Error sending slot update: {:?}", e);
                         e
                     });
                 }
@@ -143,7 +147,7 @@ fn run_broadcast_with_commitment_cache_loop(
                     let _ = transaction_stream
                         .send((message_transaction, CommitmentLevel::Processed))
                         .map_err(|e| {
-                            error!("Error sending transaction update: {:?}", e);
+                            error!(target:"websocket_geyser","Error sending transaction update: {:?}", e);
                             e
                         });
                 }
@@ -156,7 +160,7 @@ fn run_broadcast_with_commitment_cache_loop(
                     let _ = account_stream
                         .send((message_account, CommitmentLevel::Processed))
                         .map_err(|e| {
-                            error!("Error sending account update: {:?}", e);
+                            error!(target:"websocket_geyser","Error sending account update: {:?}", e);
                             e
                         });
                 }
@@ -212,7 +216,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                                 continue;
                             }
                             Err(e) => {
-                                error!("Error sending slot response: {:?}", e);
+                                error!(target:"websocket_geyser","Error sending slot response: {:?}", e);
                                 return;
                             }
                         }
@@ -288,14 +292,14 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                                     continue;
                                 }
                                 Err(e) => {
-                                    error!("Error sending transaction response: {:?}", e);
+                                    error!(target:"websocket_geyser","Error sending transaction response: {:?}", e);
                                     gauge!("websocket_geyser_total_active_subscriptions")
                                         .decrement(1);
                                     return;
                                 }
                             }
                         } else {
-                            error!("Error encoding transaction");
+                            error!(target:"websocket_geyser","Error encoding transaction");
                             continue;
                         }
                     }
@@ -368,7 +372,7 @@ impl GeyserPubSubServer for GeyserPubSubImpl {
                             }
                             Err(e) => {
                                 gauge!("websocket_geyser_total_active_subscriptions").decrement(1);
-                                error!("Error sending account response: {:?}", e);
+                                error!(target:"websocket_geyser","Error sending account response: {:?}", e);
                                 return;
                             }
                         }

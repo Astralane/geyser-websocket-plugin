@@ -1185,6 +1185,7 @@ dependencies = [
  "anyhow",
  "dashmap",
  "jsonrpsee",
+ "log",
  "metrics 0.24.0",
  "metrics-exporter-prometheus",
  "serde",

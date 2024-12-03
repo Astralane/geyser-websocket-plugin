@@ -67,14 +67,14 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         config_file: &str,
         _is_reload: bool,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!(target: "geyser", "on_load: config_file: {:?}", config_file);
-
         let config = Config::load_from_file(config_file)?;
         solana_logger::setup_with_default(&config.log.level);
+        info!(target: "websocket_geyser", "loaded config: {:?}", config);
 
         if let Some(prometheus_address) = config.prometheus_address {
+            info!(target: "websocket_geyser", "Starting prometheus server at: {:?}", prometheus_address);
             spawn_metrics_client(prometheus_address).map_err(|e| {
-                error!(target: "geyser", "Error running prometheus serve: {:?}", e);
+                error!(target: "websocket_geyser", "Error running prometheus serve: {:?}", e);
                 GeyserPluginWebsocketError::GenericError {
                     msg: "Error running prometheus server".to_string(),
                 }
@@ -122,7 +122,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
     }
 
     fn on_unload(&mut self) {
-        info!(target: "geyser", "on_unload");
+        info!(target: "websocket_geyser", "on_unload");
         //do cleanup
         if let Some(inner) = self.inner.take() {
             inner
@@ -164,7 +164,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
     fn notify_end_of_startup(
         &self,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!(target: "geyser", "notify_end_of_startup");
+        info!(target: "websocket_geyser", "notify_end_of_startup");
         Ok(())
     }
 
@@ -174,7 +174,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         parent: Option<u64>,
         status: SlotStatus,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!(target: "geyser", "update_slot_status: slot: {:?}", slot);
+        info!(target: "websocket_geyser", "update_slot_status: slot: {:?}", slot);
         let commitment = match status {
             SlotStatus::Processed => CommitmentConfig::processed(),
             SlotStatus::Confirmed => CommitmentConfig::confirmed(),
@@ -194,7 +194,7 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         transaction: ReplicaTransactionInfoVersions,
         slot: u64,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
-        info!(target: "geyser", "notify_transaction: transaction for {:?}", slot);
+        info!(target: "websocket_geyser", "notify_transaction: transaction for {:?}", slot);
         //get validator for this slot
         let ReplicaTransactionInfoVersions::V0_0_2(solana_transaction) = transaction else {
             return Err(GeyserPluginError::TransactionUpdateError {
