@@ -8,7 +8,6 @@ use crate::types::filters::{
 };
 use crate::types::slot_info::MessageSlotInfo;
 use crate::types::transaction::MessageTransaction;
-use dashmap::DashMap;
 use jsonrpsee::core::{async_trait, SubscriptionResult};
 use jsonrpsee::tracing::error;
 use jsonrpsee::PendingSubscriptionSink;
@@ -17,7 +16,7 @@ use serde_json::json;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
 use solana_sdk::commitment_config::{CommitmentConfig, CommitmentLevel};
 use solana_sdk::pubkey::Pubkey;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -65,8 +64,8 @@ fn run_broadcast_with_commitment_cache_loop(
     account_stream: broadcast::Sender<(Box<MessageAccount>, CommitmentLevel)>,
 ) {
     let mut slot_record = HashSet::new();
-    let transactions_cache = DashMap::<u64, Vec<Box<MessageTransaction>>>::new();
-    let accounts_update_cache = DashMap::<u64, Vec<Box<MessageAccount>>>::new();
+    let mut transactions_cache = HashMap::<u64, Vec<Box<MessageTransaction>>>::new();
+    let mut accounts_update_cache = HashMap::<u64, Vec<Box<MessageAccount>>>::new();
     loop {
         let message = rx.blocking_recv();
         if let Some(message) = message {
@@ -109,12 +108,10 @@ fn run_broadcast_with_commitment_cache_loop(
                         CommitmentLevel::Finalized => {
                             let mut transactions = Vec::new();
                             let mut account_updates = Vec::new();
-                            if let Some((_, messages)) = transactions_cache.remove(&slot_msg.slot) {
+                            if let Some(messages) = transactions_cache.remove(&slot_msg.slot) {
                                 transactions = messages;
                             }
-                            if let Some((_, messages)) =
-                                accounts_update_cache.remove(&slot_msg.slot)
-                            {
+                            if let Some(messages) = accounts_update_cache.remove(&slot_msg.slot) {
                                 account_updates = messages;
                             }
                             slot_record.remove(&slot_msg.slot);
