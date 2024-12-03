@@ -11,6 +11,7 @@ use crate::types::transaction::MessageTransaction;
 use jsonrpsee::core::{async_trait, SubscriptionResult};
 use jsonrpsee::tracing::error;
 use jsonrpsee::PendingSubscriptionSink;
+use log::info;
 use metrics::{counter, gauge, histogram};
 use serde_json::json;
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
@@ -80,6 +81,7 @@ fn run_broadcast_with_commitment_cache_loop(
                 ChannelMessage::Slot(slot_msg) => {
                     let (transactions, account_updates) = match slot_msg.commitment {
                         CommitmentLevel::Processed => {
+                            debug!(target:"websocket_geyser","Processed commitment level {:?}", slot_msg.slot);
                             // remove old unconfirmed slot data,
                             // keep only retain_slot_count slots
                             let current_slot = slot_msg.slot;

@@ -150,6 +150,10 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
             }
             ReplicaAccountInfoVersions::V0_0_3(info) => info,
         };
+        // we dont want to send account updates during startup
+        if is_startup {
+            return Ok(());
+        }
         if let Some(inner) = self.inner.as_ref() {
             let message = (account, slot, is_startup).into();
             if let Err(e) = inner
