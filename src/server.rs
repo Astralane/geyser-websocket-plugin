@@ -74,9 +74,6 @@ fn run_broadcast_with_commitment_cache_loop(
             gauge!("websocket_geyser_transactions_cache_size").set(transactions_cache.len() as f64);
             gauge!("websocket_geyser_accounts_cache_size").set(accounts_update_cache.len() as f64);
 
-            warn!(target: "websocket_geyser", "transaction_cache_size: {}", transactions_cache.len());
-            warn!(target: "websocket_geyser", "accounts_cache_size: {}", accounts_update_cache.len());
-
             match message {
                 ChannelMessage::Slot(slot_msg) => {
                     let (transactions, account_updates) = match slot_msg.commitment {
@@ -88,6 +85,9 @@ fn run_broadcast_with_commitment_cache_loop(
                             let max_retain_slot = current_slot - retain_slot_count as u64;
                             transactions_cache.retain(|slot, _| *slot >= max_retain_slot);
                             accounts_update_cache.retain(|slot, _| *slot >= max_retain_slot);
+
+                            info!(target: "websocket_geyser", "transaction_cache_size: {}", transactions_cache.len());
+                            info!(target: "websocket_geyser", "accounts_cache_size: {}", accounts_update_cache.len());
                             (Vec::new(), Vec::new())
                         }
                         CommitmentLevel::Confirmed => {
