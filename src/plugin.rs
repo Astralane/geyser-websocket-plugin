@@ -65,11 +65,12 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
     fn on_load(
         &mut self,
         config_file: &str,
-        _is_reload: bool,
+        is_reload: bool,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         let config = Config::load_from_file(config_file)?;
         solana_logger::setup_with_default(&config.log.level);
         info!(target: "websocket_geyser", "loaded config: {:?}", config);
+        info!(target: "websocket_geyser", "is_reload: {:?}", is_reload);
 
         if let Some(prometheus_address) = config.prometheus_address {
             info!(target: "websocket_geyser", "Starting prometheus server at: {:?}", prometheus_address);
