@@ -44,6 +44,7 @@ impl GeyserPubSubImpl {
                 slot_stream_sender,
                 transaction_stream_sender,
                 account_stream_sender,
+                100,
             )
         });
         Self {
@@ -62,8 +63,8 @@ fn run_broadcast_with_commitment_cache_loop(
     slot_stream: broadcast::Sender<MessageSlotInfo>,
     transaction_stream: broadcast::Sender<(Box<MessageTransaction>, CommitmentLevel)>,
     account_stream: broadcast::Sender<(Box<MessageAccount>, CommitmentLevel)>,
+    retain_slot_count: usize,
 ) {
-    let mut slot_record = HashSet::new();
     let mut transactions_cache = HashMap::<u64, Vec<Box<MessageTransaction>>>::new();
     let mut accounts_update_cache = HashMap::<u64, Vec<Box<MessageAccount>>>::new();
     loop {
@@ -71,27 +72,16 @@ fn run_broadcast_with_commitment_cache_loop(
         if let Some(message) = message {
             gauge!("websocket_geyser_transactions_cache_size").set(transactions_cache.len() as f64);
             gauge!("websocket_geyser_accounts_cache_size").set(accounts_update_cache.len() as f64);
-            gauge!("websocket_geyser_slots_cache_size").set(slot_record.len() as f64);
             match message {
                 ChannelMessage::Slot(slot_msg) => {
                     let (transactions, account_updates) = match slot_msg.commitment {
                         CommitmentLevel::Processed => {
-                            slot_record.insert(slot_msg.slot);
-
                             // remove old unconfirmed slot data,
-                            // keep only the last 100 slots in memory
-                            let slots_to_remove = slot_record
-                                .iter()
-                                .filter(|&&s| s < slot_msg.slot - 100)
-                                .cloned()
-                                .collect::<Vec<_>>();
-
-                            for slot in slots_to_remove {
-                                transactions_cache.remove(&slot);
-                                accounts_update_cache.remove(&slot);
-                                slot_record.remove(&slot);
-                            }
-
+                            // keep only retain_slot_count slots
+                            let current_slot = slot_msg.slot;
+                            let max_retain_slot = current_slot - retain_slot_count as u64;
+                            transactions_cache.retain(|slot, _| *slot >= max_retain_slot);
+                            accounts_update_cache.retain(|slot, _| *slot >= max_retain_slot);
                             (Vec::new(), Vec::new())
                         }
                         CommitmentLevel::Confirmed => {
@@ -114,7 +104,6 @@ fn run_broadcast_with_commitment_cache_loop(
                             if let Some(messages) = accounts_update_cache.remove(&slot_msg.slot) {
                                 account_updates = messages;
                             }
-                            slot_record.remove(&slot_msg.slot);
                             (transactions, account_updates)
                         }
                     };
