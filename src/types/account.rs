@@ -1,8 +1,8 @@
 use agave_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfoV3;
 use serde::{Deserialize, Serialize};
-use solana_account_decoder::UiAccount;
+use solana_account_decoder::{encode_ui_account, UiAccount};
 use solana_rpc_client_api::config::RpcAccountInfoConfig;
-use solana_sdk::account::Account;
+use solana_sdk::account::{Account};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::signature::Signature;
 
@@ -76,7 +76,7 @@ impl MessageAccount {
             .unwrap_or(solana_account_decoder::UiAccountEncoding::Base64);
         let data_slice = config.as_ref().map(|c| c.data_slice).unwrap_or_default();
         let account: AccountData = self.clone().into();
-        UiAccount::encode(
+        encode_ui_account(
             &account.pubkey,
             &account.account,
             encoding,
