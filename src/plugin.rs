@@ -176,12 +176,13 @@ impl GeyserPlugin for GeyserWebsocketPlugin {
         &self,
         slot: u64,
         parent: Option<u64>,
-        status: SlotStatus,
+        status: &SlotStatus,
     ) -> agave_geyser_plugin_interface::geyser_plugin_interface::Result<()> {
         let commitment = match status {
             SlotStatus::Processed => CommitmentConfig::processed(),
             SlotStatus::Confirmed => CommitmentConfig::confirmed(),
             SlotStatus::Rooted => CommitmentConfig::finalized(),
+            _ => return Ok(()),
         };
         let message = MessageSlotInfo::new(slot, parent, commitment.commitment);
         if let Some(inner) = self.inner.as_ref() {
